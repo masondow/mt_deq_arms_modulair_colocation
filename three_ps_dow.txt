@@ -1,0 +1,9 @@
+Week 1 - 1/24/25 Update
+
+Progress: Since the end of the fall semester I have made more progress in prioritizing the colocation priority list and timeline for our Modulair sensor deployments.
+
+Problems: My main problem I can see arising is having too small a sample size of colocated sensors with our regulatory monitors, leaving me with too narrow a dataset for developing a robust model and correction factors for the wide range of PM2.5 concentrations our monitors can see over the course of a year. 
+
+Plans: My plan, as of now, is to use this capstone project to serve as the pillar/proof of concept for future colocation analysis and correction that will span more monitors over a longer period of time. To do so, I will want to make my code (from data gathering, cleaning, analysis and model development and deployment) as reproducible as possible (i.e. lots of functions essentially). To do this I should get better at writing clean, lightweight, deployable functions in R and Python!
+
+Hours: Maybe 10 since the end of the Fall semester. 
