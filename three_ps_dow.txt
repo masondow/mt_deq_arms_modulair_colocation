@@ -6,4 +6,4 @@ Problems: My main problem I can see arising is having too small a sample size of
 
 Plans: My plan, as of now, is to use this capstone project to serve as the pillar/proof of concept for future colocation analysis and correction that will span more monitors over a longer period of time. To do so, I will want to make my code (from data gathering, cleaning, analysis and model development and deployment) as reproducible as possible (i.e. lots of functions essentially). To do this I should get better at writing clean, lightweight, deployable functions in R and Python!
 
-Hours: Maybe 10 since the end of the Fall semester. 
+Hours: Maybe 10 since the end of the Fall semester.  
