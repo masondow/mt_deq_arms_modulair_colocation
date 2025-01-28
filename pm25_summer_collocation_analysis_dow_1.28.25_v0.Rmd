@@ -1,0 +1,255 @@
+---
+title: "Rossiter PM2.5 Monitor Analysis, Summer 2024"
+author: "Mason Dow"
+date: "`r Sys.Date()`"
+output: 
+  html_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+```{r echo=FALSE, message=FALSE,warning=FALSE}
+library(gt)
+library(dplyr)
+library(lubridate)
+library(readxl)
+library(avconn)
+library(tidyverse)
+library(rlang)
+library(gghighlight)
+library(AirMonitor)
+library(yardstick)
+```
+
+```{r}
+
+summer_data <- read_excel("summer_data.xlsx")
+
+```
+
+```{r}
+long_data <- summer_data %>%
+  pivot_longer(
+    cols = c(`1022`, `1020`, thermo, FEM_avg, modulair, purpleair),
+    names_to = "source",
+    values_to = "pm_concentration"
+  )
+
+```
+
+```{r, include=FALSE}
+summary_stats <- long_data %>%
+  group_by(source) %>%
+  summarise(
+    Mean = mean(pm_concentration, na.rm = TRUE),
+    Median = median(pm_concentration, na.rm = TRUE),
+    Minimum = min(pm_concentration, na.rm = TRUE),
+    Maximum = max(pm_concentration, na.rm = TRUE)
+  )
+
+gt_summary <- gt(summary_stats)
+
+gt_summary <- fmt_number(
+  gt_summary,
+  columns = everything(),
+  decimals = 1
+   )
+
+gtExtras::gt_highlight_rows(
+  gt_summary,
+  columns = gt::everything(),
+  rows = source == "modulair",
+  alpha = 0.8,
+  font_weight = "bold",
+  font_color = "#000000",
+  bold_target_only = FALSE,
+  target_col = c()
+)
+```
+
+```{r}
+gtExtras::gt_highlight_rows(
+  gt_summary,
+  columns = gt::everything(),
+  rows = source == "modulair",
+  alpha = 0.8,
+  font_weight = "bold",
+  font_color = "#000000",
+  bold_target_only = FALSE,
+  target_col = c()
+)
+```
+
+```{r, warning=FALSE}
+
+ggplot(long_data, aes(x = source, y = pm_concentration, fill = source)) +
+  geom_boxplot() +
+  labs(title = "Distribution of PM Concentrations by Monitor",
+       x = "Sampler",
+       y = "PM Concentration") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1),  
+        legend.position = "none")
+
+```
+```{r}
+ggplot(long_data, aes(x = date, y = pm_concentration, color = source)) +
+  geom_line() +
+  labs(title = "Hourly PM2.5 Concentration Aug. 1 - Oct. 10",
+       x = "Date",
+       y = "PM Concentration",
+       color = "Monitor") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))  
+```
+
+```{r, warning=FALSE}
+#plotting 15 days in Sept
+
+sept_long_data <- long_data %>%
+  filter(date >= as.POSIXct("2024-09-01 00:00:00") & date < as.POSIXct("2024-09-16 00:00:00"))
+
+# Plotting the filtered data
+ggplot(sept_long_data, aes(x = date, y = pm_concentration, color = source)) +
+  geom_line() +
+  labs(title = "Sept. 1 - 15",
+       x = "Date",
+       y = "PM Concentration",
+       color = "Source") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+```{r, warning=FALSE}
+#plotting 5 days in Sept
+
+sept_long_data2 <- long_data %>%
+  filter(date >= as.POSIXct("2024-09-07 00:00:00") & date < as.POSIXct("2024-09-12 00:00:00"))
+
+# Plotting the filtered data
+ggplot(sept_long_data2, aes(x = date, y = pm_concentration, color = source)) +
+  geom_line() +
+  labs(title = "Sept. 7 - 12",
+       x = "Date",
+       y = "PM Concentration (UG/M3)",
+       color = "Monitor") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+```{r, warning=FALSE}
+#plotting 5 days in Sept
+
+sept_long_data2 <- long_data %>%
+  filter(date >= as.POSIXct("2024-09-07 00:00:00") & date < as.POSIXct("2024-09-12 00:00:00"))
+
+# Plotting the filtered data
+ggplot(sept_long_data2, aes(x = date, y = pm_concentration, color = source)) +
+  geom_line() +
+  gghighlight(max(pm_concentration) > 120) +
+  labs(title = "Sept. 7 - 12",
+       x = "Date",
+       yy = "PM Concentration (UG/M3)",
+       color = "Monitor") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+```{r}
+
+variables <- c('FEM_avg', 'purpleair', '1022', '1020', 'thermo')  
+
+pos_pm_data <- summer_data %>% # turning all negative BAM values to 0 to align with how sensors record PM concentrations for correlation 
+  mutate(across(all_of(variables), ~pmax(., 0)))
+
+cor.list <- list()  
+for (var in variables) {
+  correlation <- cor(pos_pm_data$modulair, pos_pm_data[[var]], use = "complete.obs", method = "pearson")
+  cor.list[[var]] <- correlation  
+  cat('Correlation between Modulair and', var, ':', correlation, '\n')
+}
+```
+
+```{r}
+
+FEM_mae <- mae(summer_data, modulair, FEM_avg, na_rm=TRUE)
+
+purpleair_mae <- mae(summer_data, modulair, purpleair, na_rm=TRUE)
+
+BAM_mae <- mae(summer_data, '1022', purpleair, na_rm=TRUE)
+
+maes <-bind_rows(FEM_mae, purpleair_mae, BAM_mae)
+
+maes$samplers <- c("FEM_avg", "Purpleair", "1022")
+maes$.metric <- NULL
+maes$.estimator <- NULL
+colnames(maes) <- c("Mean Absolute Error", "Sampler" )
+maes
+
+```
+
+
+```{r, warning=FALSE}
+#plotting correlations 
+
+for (var in variables) {
+  
+  correlation <- cor(pos_pm_data$modulair, pos_pm_data[[var]], use = "complete.obs", method = "pearson")
+  
+  cor.plot <- ggplot(pos_pm_data, aes(x = modulair, y = !!sym(var))) +
+    geom_point(alpha = 0.5) +  
+    geom_smooth(method = "lm", se = FALSE, color = "blue") +  
+    geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "red") +  
+    labs(title = paste('Correlation between modulair and', var),
+         x = 'Modulair Concentration', y = paste(var, 'Concentration')) +
+    theme_minimal() +
+    annotate("text", x = Inf, y = Inf, label = paste("r =", round(correlation, 2)), 
+             hjust = 1.1, vjust = 1.1, size = 5, color = "blue")  
+  
+  print(cor.plot)  
+}
+```
+
+```{r}
+summer_data$modulair_aqi <- aqiCategories(
+  summer_data$modulair,
+  pollutant = c("PM2.5"),
+  NAAQS = c("PM2.5_2024", "PM2.5"),
+  conversionArray = NULL
+)
+
+summer_data$purpleair_aqi <- aqiCategories(
+  summer_data$purpleair,
+  pollutant = c("PM2.5"),
+  NAAQS = c("PM2.5_2024", "PM2.5"),
+  conversionArray = NULL
+)
+
+summer_data$FEM_aqi <- aqiCategories(
+  summer_data$FEM_avg,
+  pollutant = c("PM2.5"),
+  NAAQS = c("PM2.5_2024", "PM2.5"),
+  conversionArray = NULL
+)
+
+
+```
+
+```{r}
+correct_aqi_modulair = sum(summer_data$FEM_aqi == summer_data$modulair_aqi, na.rm = TRUE)
+correct_percent_aqi_modulair = correct_aqi_modulair/(nrow(summer_data))
+correct_percent_aqi_modulair
+
+```
+The Rossiter Modulair unit matched the average FEM AQI (via updated 2024 EPA PM2.5 AQI breakpoints) 79.3% of all hours between mid-July - mid October (null values omitted).
+
+```{r}
+correct_aqi_purpleair = sum(summer_data$purpleair_aqi == summer_data$FEM_aqi, na.rm = TRUE)
+correct_percent_aqi_purpleair = correct_aqi_purpleair/(nrow(summer_data))
+correct_percent_aqi_purpleair
+
+```
+The Rossiter PurpleAir unit matched the average FEM AQI 75.7% of all hours for the same time period. 
