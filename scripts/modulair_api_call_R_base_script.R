@@ -9,7 +9,7 @@ library(keyring)
 
 # set API Key, endpoints:
 api_url <- "https://api.quant-aq.com/device-api/v1/"  # this is proper API key
-api_key <- "5IZB5K8JE3HWLU0B0QJS9QNM" # Replace with *your* API key (if you have permission, save the key as a system variable or using the keyring package)
+api_key <- "key" # Replace with *your* API key (if you have permission, save the key as a system variable or using the keyring package)
 endpoint <- "devices/MOD-00514/data-by-date/2023-11-29/" # Set your endpoint HERE
 full_url <- paste0(api_url, endpoint)
 rossiter_device_serial <- "MOD-00514"
