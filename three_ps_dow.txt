@@ -1,10 +1,12 @@
-Week 1 - 1/24/25 Update
+Week 3 - 2/10/25 Update
 
-Progress: Since the end of the fall semester I have made more progress in prioritizing the colocation priority list and timeline for our Modulair sensor deployments.
+Progress: Not a huge update as of this week--regulatory QA work usually consumers the first half of my month. I am installing my final two Modulair PM2.5 collocation sensors in Missoula and Libby next week--they will be added to my final dataset after they run for a week at these sites, for the purposes of simply nominally expanding the number of independent observations in the dataset and make for a prettier map for some of my presentation graphics (covering more of Montana). Given the brevity of their data collection for use in this initial analysis and model run, they are much more for inclusion in the dataset after the coming smoke season, after which these pairings will exhibit a much larger range of observed measurements. 
 
-Problems: My main problem I can see arising is having too small a sample size of colocated sensors with our regulatory monitors, leaving me with too narrow a dataset for developing a robust model and correction factors for the wide range of PM2.5 concentrations our monitors can see over the course of a year. 
+Problems: My main problem this week is trying to set aside enough time in February to actually do my model training and assessment!
 
-Plans: My plan, as of now, is to use this capstone project to serve as the pillar/proof of concept for future colocation analysis and correction that will span more monitors over a longer period of time. To do so, I will want to make my code (from data gathering, cleaning, analysis and model development and deployment) as reproducible as possible (i.e. lots of functions essentially). To do this I should get better at writing clean, lightweight, deployable functions in R and Python!
+Plans: Spoke mostly about my coming plans in the Progress portion. Cant believe we're almost halfway done with Feb!
+
+Hours: Maybe 15 this week given that I spent some time doing some network planning for our DEQ section, which included refining my timeline for deploying additional Modulair collocated pairs this week. 
 -------
 
 Week 2 - 2/2/25 Update
@@ -17,3 +19,13 @@ Plans: I need to refine my code to query my two databases, the Modulair cloud da
 
 Hours: Maybe 15 this week given that I spent some time doing some network planning for our DEQ section, which included refining my timeline for deploying additional Modulair collocated pairs this week. 
 -------
+
+Week 1 - 1/24/25 Update
+
+Progress: Since the end of the fall semester I have made more progress in prioritizing the colocation priority list and timeline for our Modulair sensor deployments.
+
+Problems: My main problem I can see arising is having too small a sample size of colocated sensors with our regulatory monitors, leaving me with too narrow a dataset for developing a robust model and correction factors for the wide range of PM2.5 concentrations our monitors can see over the course of a year. 
+
+Plans: My plan, as of now, is to use this capstone project to serve as the pillar/proof of concept for future colocation analysis and correction that will span more monitors over a longer period of time. To do so, I will want to make my code (from data gathering, cleaning, analysis and model development and deployment) as reproducible as possible (i.e. lots of functions essentially). To do this I should get better at writing clean, lightweight, deployable functions in R and Python!
+-------
+
