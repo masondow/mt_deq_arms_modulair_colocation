@@ -1,3 +1,27 @@
+Week 5 - 2/21/25 Update
+
+Progress: The final two colocated Modulair sensors were installed this week, completing this portion of the project. I also worked on updating my data Modulair data retrieval script this week. More to come this weekend. 
+
+Problems: Right now I am having trouble bouncing between ym work and home computers and keeping everything synched across both--last week I missed pushing my 3P's update because of this, pulling the update onto my work computer and not realizing I hadn't pushed that final piece from my home computer.
+
+Additionally, I am having the feeling that I am not properly structuring my virtual environment properly between the two. I just tried to redo this but failed, and my dependencies aren't showing up where I need them to. 
+
+Plans: I plan to get my data retrieval script (pivoted from R to python after reviewing the command-line-interface package from QuantAQ, which only exists as a Python script) for pulling data from the Modulair unit this weekend. I can then update my SQL script to pull the data from our local SQL server via our in-house AVconn package, which I need to update. Some data combining may need to happen by hand in excel, as there may be a 3rd data source I need which would come directly from one our our direct-poll samplers at our local Rossiter site. No coding to access this unit, rather manufacturer-specific software for data retrieval. 
+
+Hours: Including travel for sensor installation, 15 this week. 
+-------
+
+Week 4 - 2/14/25 Update
+
+Progress: Worked on updating my folder structure for my repo this week.
+
+Problems: Main problem I can see arising is figuring out how I want my data retrieval script to be structured in order to accommodate future data polls with more parameters than PM2.5, how to set a primary dependent variable. 
+
+Plans: Installing the final two collocated Modulair sensors in the middle of next week on a large QC loop across western MT, in Missoula and Libby. 
+
+Hours: 4 this week. 
+-------
+
 Week 3 - 2/10/25 Update
 
 Progress: Not a huge update as of this week--regulatory QA work usually consumers the first half of my month. I am installing my final two Modulair PM2.5 collocation sensors in Missoula and Libby next week--they will be added to my final dataset after they run for a week at these sites, for the purposes of simply nominally expanding the number of independent observations in the dataset and make for a prettier map for some of my presentation graphics (covering more of Montana). Given the brevity of their data collection for use in this initial analysis and model run, they are much more for inclusion in the dataset after the coming smoke season, after which these pairings will exhibit a much larger range of observed measurements. 

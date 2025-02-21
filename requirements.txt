@@ -1,0 +1,4 @@
+py-quantaq
+pandas
+python-dotenv
+requests
