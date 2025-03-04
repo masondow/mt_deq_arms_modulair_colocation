@@ -1,8 +1,7 @@
-from dotenv import load_dotenv
+import dotenv 
 import os
 import pandas as pd
-
-from quantaq import APIClient
+import quantaq
 
 def authenticate():
     client = APIClient(api_key=API_KEY)

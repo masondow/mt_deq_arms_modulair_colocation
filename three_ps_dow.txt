@@ -1,3 +1,14 @@
+Week 6 - 3/2/25 Update
+
+Progress: I have called "picture lock" on my dataset I will be using for this initial colocation and correction analysis. All datasets have been pulled down from the cloud and queried from our local database, the latter of which was done in a manual fashion through our AirVision platform rather than via code, as I need to update the R package we use to query this bespoke database but this will entail a larger effort with my coworker Keri, as there are additional changes to the package functions we want to make. 
+
+Problems: Problems right now are going to be finding enough desk time/after work hours to crank through the analysis I want to do. I have a couple R notebooks from January that I need to rework/update into functions for my scripts folder for future repeatability. 
+
+Plans: Its good we don't have class this week as I have a ton of travel from Tuesday to Friday. Things should come together quickly with my dataset locked, queried and QA'ed.
+
+Hours: 5 this week prior to the empty class time. 
+-------
+
 Week 5 - 2/21/25 Update
 
 Progress: The final two colocated Modulair sensors were installed this week, completing this portion of the project. I also worked on updating my data Modulair data retrieval script this week. More to come this weekend. 
