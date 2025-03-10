@@ -2,9 +2,10 @@
 # Montana DEQ - ARMS Modulair Collocation Project
 
 ## 📌 Project Overview
-This project evaluates colocated PM2.5 concentration measurements from QuantAQ Modulair air quality sensors collocated at Montana DEQ regulatory grade monitoring sites. The goal is to assess sensor accuracy and develop correction models to improve data quality.
+This project collects data from and evaluates colocated PM2.5 concentration measurements from QuantAQ Modulair air quality sensors collocated at Montana DEQ regulatory grade monitoring sites. The goal is to assess sensor accuracy and develop correction models to improve data quality.
 
 ## 🎯 Objectives
+- Produce reusable functions and scripts for querying and reformatting data from the QuantAQ cloud
 - Compare uncorrected PM2.5 readings from Modulair sensors to regulatory-grade data.
 - Explore accuracy and bias at different concentration/AQI levels. 
 - Explore meteorological effects on sensor bias.
@@ -12,10 +13,10 @@ This project evaluates colocated PM2.5 concentration measurements from QuantAQ M
 
 ## 📂 Repository Structure
 ```
-📂 data/          – Stores processed datasets (NO raw data stored in GitHub).  
+📂 data/          – Stores processed datasets.  
 📂 exploratory analysis/     – Jupyter/RMarkdown notebooks for EDA.
 📂 modeling/      – Jupyter/RMarkdown notebooks for modeling and assessment.  
-📂 functions/     – Functions for data retrieval, processing, modeling.  
+📂 functions/     – Functions for data retrieval and pre-processing.
 📂 reports/       – Final figures, tables, and project summaries.  
 📄 README.md      – Overview of the project.  
 📄 three_ps_dow.txt     – Weekly project updates  
@@ -44,7 +45,7 @@ This project evaluates colocated PM2.5 concentration measurements from QuantAQ M
 
 ## 📊 Data Sources
 - **QuantAQ Modulair API** (retrieves sensor data).
-- **AirVision SQL Database** (FEM reference data).
+- **AirVision SQL Database** (FEM reference data, accessed manually through GUI or via AVconn package, not available to public).
 
 ## 📝 License & Attribution
-<Optional: Any usage terms, license, or acknowledgments I may want (def acknowledgments)>
+<Optional: Any usage terms, license, or acknowledgments I may want (def acknowledgments!)>

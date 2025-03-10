@@ -37,7 +37,7 @@ load_dotenv()
 BASE_URL = "https://api.quant-aq.com/v1"
 # API_KEY = os.getenv("QUANTAQ_API_KEY")
 # Alternatively, you can set the API key directly in the script: 
-API_KEY ="5IZB5K8JE3HWLU0B0QJS9QNM"
+# API_KEY ="your_api_key_here"
 
 if API_KEY is None:
     raise ValueError("API key not found. Please set QUANTAQ_API_KEY in the .env file.")
