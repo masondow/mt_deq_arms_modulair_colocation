@@ -1,3 +1,13 @@
+Week 7 - 3/9/25 Update
+
+Progress: 
+
+Problems: 
+
+Plans: 
+
+Hours: 
+
 Week 6 - 3/2/25 Update
 
 Progress: I have called "picture lock" on my dataset I will be using for this initial colocation and correction analysis. All datasets have been pulled down from the cloud and queried from our local database, the latter of which was done in a manual fashion through our AirVision platform rather than via code, as I need to update the R package we use to query this bespoke database but this will entail a larger effort with my coworker Keri, as there are additional changes to the package functions we want to make. 

@@ -1,15 +1,26 @@
 import dotenv 
 import os
+import quantaq 
 import pandas as pd
-import quantaq
+from dotenv import load_dotenv
+from quantaq import client
+
+# Load environment variables
+load_dotenv()
+
+# Retrieve and check API key
+API_KEY = os.getenv("QUANTAQ_API_KEY")
+
+if API_KEY is None:
+    raise ValueError("API key not found. Please set QUANTAQ_API_KEY in the .env file.")
 
 def authenticate():
-    client = APIClient(api_key=API_KEY)
+    client = quantaq.QuantAQAPIClient(API_KEY)
     return client
 
 def get_sensors(client):
-    sensors = client.get_devices()
-    return sensors
+    devices = client.devices.list()
+    print (devices)
 
 def download_data(client, serial_number, start, end, interval='1h'):
     data = client.get_data(

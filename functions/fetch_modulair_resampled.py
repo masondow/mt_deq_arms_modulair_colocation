@@ -17,7 +17,7 @@ Example:
     $ python quantaq_fetch.py
 
     Sample input:
-    Serial numbers: MOD123, MOD456
+    Serial numbers: MOD00800, MOD00801
     Start date: 2024-01-01
     End date: 2024-01-31
     Interval: 1H

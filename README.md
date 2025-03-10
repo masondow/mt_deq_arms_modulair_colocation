@@ -2,22 +2,24 @@
 # Montana DEQ - ARMS Modulair Collocation Project
 
 ## 📌 Project Overview
-This project evaluates colocated PM2.5 concentration measurements from QuantAQ Modulair air quality sensors collocated at Montana DEQ regulatory grade monitoring sites. The goal is to assess sensor accuracy and develop correction models to improve its data quality.
+This project evaluates colocated PM2.5 concentration measurements from QuantAQ Modulair air quality sensors collocated at Montana DEQ regulatory grade monitoring sites. The goal is to assess sensor accuracy and develop correction models to improve data quality.
 
 ## 🎯 Objectives
 - Compare uncorrected PM2.5 readings from Modulair sensors to regulatory-grade data.
-- Explore accuracy and bias at different concentration levels. 
-- Explore meteorological and particle bin size effects on sensor bias.
+- Explore accuracy and bias at different concentration/AQI levels. 
+- Explore meteorological effects on sensor bias.
 - Develop and test correction models for improved accuracy.
 
 ## 📂 Repository Structure
 ```
 📂 data/          – Stores processed datasets (NO raw data stored in GitHub).  
-📂 notebooks/     – Jupyter/RMarkdown notebooks for EDA & modeling.  
-📂 scripts/       – Python & R scripts (data retrieval, processing, modeling).  
+📂 exploratory analysis/     – Jupyter/RMarkdown notebooks for EDA.
+📂 modeling/      – Jupyter/RMarkdown notebooks for modeling and assessment.  
+📂 functions/     – Functions for data retrieval, processing, modeling.  
 📂 reports/       – Final figures, tables, and project summaries.  
-📂 environment/   – API credentials, dependencies (e.g., .env, requirements.txt).  
 📄 README.md      – Overview of the project.  
+📄 three_ps_dow.txt     – Weekly project updates  
+📄  requirements.txt    - Project dependencies 
 📄 .gitignore     – Prevents sensitive files from being tracked.  
 ```
 
