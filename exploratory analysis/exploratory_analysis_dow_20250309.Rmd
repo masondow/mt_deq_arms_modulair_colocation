@@ -58,8 +58,8 @@ lt_summary <- lt_data %>%
     sd_pm25_mod = sd(lt_modulair_pm25, na.rm = TRUE),
     min_pm25_mod = min(lt_modulair_pm25, na.rm = TRUE),
     max_pm25_mod = max(lt_modulair_pm25, na.rm = TRUE),
-    mean_rh = mean(lt_modulair_rh, na.rm = TRUE),
-    mean_temp = mean(lt_modulair_tempc, na.rm = TRUE)
+    mean_rh_mod = mean(lt_modulair_rh, na.rm = TRUE),
+    mean_temp_mod = mean(lt_modulair_tempc, na.rm = TRUE)
   )
 
 # NC Site
@@ -74,8 +74,8 @@ nc_summary <- nc_data %>%
     sd_pm25_mod = sd(nc_modulair_pm25, na.rm = TRUE),
     min_pm25_mod = min(nc_modulair_pm25, na.rm = TRUE),
     max_pm25_mod = max(nc_modulair_pm25, na.rm = TRUE),
-    mean_rh = mean(nc_modulair_rh, na.rm = TRUE),
-    mean_temp = mean(nc_modulair_tempc, na.rm = TRUE)
+    mean_rh_mod = mean(nc_modulair_rh, na.rm = TRUE),
+    mean_temp_mod = mean(nc_modulair_tempc, na.rm = TRUE)
   )
 
 # RP Site (Comparing Multiple FEM Streams)
@@ -99,10 +99,13 @@ rp_summary <- rp_data %>%
     mean_pm25_mod = mean(rp_modulair_pm25, na.rm = TRUE),
     sd_pm25_mod = sd(rp_modulair_pm25, na.rm = TRUE),
     min_pm25_mod = min(rp_modulair_pm25, na.rm = TRUE),
-    max_pm25_mod = max(rp_modulair_pm25, na.rm = TRUE)
+    max_pm25_mod = max(rp_modulair_pm25, na.rm = TRUE),
+    mean_rh_mod = mean(rp_modulair_rh, na.rm = TRUE),
+    mean_temp_mod = mean(rp_modulair_tempc, na.rm = TRUE)
   )
 
 summary_table <- bind_rows(lt_summary, nc_summary, rp_summary)
+summary_table
 summary_table %>% gt()
 ```
 

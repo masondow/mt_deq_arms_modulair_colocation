@@ -26,7 +26,7 @@ library(yardstick)
 
 ```{r}
 
-summer_data <- read_excel("summer_data.xlsx")
+summer_data <- read_excel("../data/RP_summer_data.xlsx")
 
 ```
 

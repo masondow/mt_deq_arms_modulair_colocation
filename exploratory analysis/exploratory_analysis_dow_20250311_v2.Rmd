@@ -1,0 +1,320 @@
+---
+title: "Exploratory Analysis of Montana PM2.5 Collocation Data"
+author: "Your Name"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+# Introduction
+
+This document performs an exploratory analysis of collocation datasets from FEM sites (RP, NC, and LT). The objectives are to:
+
+- Generate summary tables of descriptive statistics (min, max, mean, standard deviation, etc.) for each parameter for each site.
+- Visualize PM2.5 trends 
+- Compute AQI categories for PM2.5 using the AirMontitor package.
+- Calculate a comprehensive set of accuracy metrics (including R², MAE, RMSE, normalized RMSE, regression slope, and intercept), overall and by AQI category.
+- Validate the weighted average computation for the RP site, which uses static weights derived from the cube root of the inverse variance of the three FEM instruments (RP_1020, RP_1022, RP_thermo).
+
+# Setup
+
+```{r setup, message=FALSE, warning=FALSE}
+# Load necessary libraries
+library(tidyverse)
+library(readxl)
+library(lubridate)
+library(scales)
+library(knitr)
+
+# Load the AirMontitor package for AQI categorization
+library(AirMonitor)
+
+# Set a consistent theme for ggplot2
+theme_set(theme_minimal())
+```
+
+
+## Load Data
+
+```{r}
+# Define file paths
+lt_data <- read_excel("../data/LT_data.xlsx")
+nc_data <- read_excel("../data/NC_data.xlsx")
+rp_data <- read_excel("../data/RP_data.xlsx")
+```
+
+## Descriptive Statistics
+
+```{r}
+# Function to generate descriptive statistics table
+descriptive_stats <- function(data) {
+  data %>%
+    summarise(across(where(is.numeric),
+                     list(mean = ~mean(.x, na.rm = TRUE),
+                          sd   = ~sd(.x, na.rm = TRUE),
+                          min  = ~min(.x, na.rm = TRUE),
+                          max  = ~max(.x, na.rm = TRUE)))) %>%
+    pivot_longer(
+      cols = everything(),
+      names_to = c("parameter", ".value"),
+      names_pattern = "(.+)_(mean|sd|min|max)$"
+    )
+}
+
+# Generate descriptive stats for each site
+rp_stats <- descriptive_stats(rp_data)
+nc_stats <- descriptive_stats(nc_data)
+lt_stats <- descriptive_stats(lt_data)
+
+# Display the tables
+kable(rp_stats, caption = "Descriptive Statistics - RP Site")
+kable(nc_stats, caption = "Descriptive Statistics - NC Site")
+kable(lt_stats, caption = "Descriptive Statistics - LT Site")
+
+
+```
+
+## Data Visualizations 
+
+```{r}
+monitor_colors <- c("1020" = "yellow", 
+                    "1022" = "red", 
+                    "Thermo" = "tan", 
+                    "FEM Average" ="green",
+                    "Modulair" = "orange", 
+                    "PurpleAir" = "purple")
+```
+
+### Boxplots of PM2.5 Concentration Distributions
+
+```{r}
+# Prepare data for boxplot for rp site and recode sensor names
+
+# RP site
+rp_pm25 <- rp_data %>% 
+  select(datetime, rp_1020, rp_1022, rp_thermo, rp_fem_avg, rp_modulair_pm25, rp_purpleair_cf1) %>% 
+  pivot_longer(-datetime, names_to = "monitor", values_to = "pm25") %>%
+  mutate(monitor = case_when(
+    monitor == "rp_1020" ~ "1020",
+    monitor == "rp_1022" ~ "1022",
+    monitor == "rp_thermo" ~ "Thermo",
+    monitor == "rp_fem_avg" ~ "FEM Average",
+    monitor == "rp_modulair_pm25" ~ "Modulair",
+    monitor == "rp_purpleair_cf1" ~ "PurpleAir",
+    TRUE ~ monitor
+  ))
+
+ggplot(rp_pm25, aes(x = monitor, y = pm25, fill = monitor)) +
+  geom_boxplot() +
+  scale_fill_manual(values = monitor_colors) +
+  labs(title = "PM2.5 Distribution at RP Site",
+       x = "Monitor",
+       y = "PM2.5 (µg/m³)") +
+  theme(legend.position = "none")
+
+# NC site 
+nc_pm25 <- nc_data %>% 
+  select(datetime, nc_1020, nc_modulair_pm25, nc_purpleair_cf1) %>% 
+  pivot_longer(-datetime, names_to = "monitor", values_to = "pm25") %>%
+  mutate(monitor = case_when(
+    monitor == "nc_1020" ~ "1020",
+    monitor == "nc_modulair_pm25" ~ "Modulair",
+    monitor == "nc_purpleair_cf1" ~ "PurpleAir",
+    TRUE ~ monitor
+  ))
+
+ggplot(nc_pm25, aes(x = monitor, y = pm25, fill = monitor)) +
+  geom_boxplot() +
+  scale_fill_manual(values = monitor_colors) +
+  labs(title = "PM2.5 Distribution at NC Site",
+       x = "Monitor",
+       y = "PM2.5 (µg/m³)") +
+  theme(legend.position = "none")
+
+# LT site
+lt_pm25 <- lt_data %>% 
+  select(datetime, lt_thermo, lt_modulair_pm25, lt_purpleair_cf1) %>% 
+  pivot_longer(-datetime, names_to = "monitor", values_to = "pm25") %>%
+  mutate(monitor = case_when(
+    monitor == "lt_thermo" ~ "Thermo",
+    monitor == "lt_modulair_pm25" ~ "Modulair",
+    monitor == "lt_purpleair_cf1" ~ "PurpleAir",
+    TRUE ~ monitor
+  ))
+
+ggplot(lt_pm25, aes(x = monitor, y = pm25, fill = monitor)) +
+  geom_boxplot() +
+  scale_fill_manual(values = monitor_colors) +
+  labs(title = "PM2.5 Distribution at LT Site",
+       x = "Monitor",
+       y = "PM2.5 (µg/m³)") +
+  theme(legend.position = "none")
+
+
+
+```
+
+### Time Series Line Graphs of PM2.5 Concentration Distributions 
+
+```{r}
+# rp site 
+ggplot(rp_data, aes(x = datetime)) +
+  geom_line(aes(y = rp_1020, color = "1020")) +
+  geom_line(aes(y = rp_1022, color = "1022")) +
+  geom_line(aes(y = rp_thermo, color = "Thermo")) +
+  geom_line(aes(y = rp_modulair_pm25, color = "Modulair")) +
+  geom_line(aes(y = rp_purpleair_cf1, color = "PurpleAir")) +
+  scale_color_manual(values = monitor_colors) +
+  labs(title = "PM2.5 Time Series at RP Site",
+       x = "Datetime",
+       y = "PM2.5 (µg/m³)",
+       color = "Monitor Type")
+
+# nc site 
+ggplot(nc_data, aes(x = datetime)) +
+  geom_line(aes(y = nc_1020, color = "1020")) +
+  geom_line(aes(y = nc_modulair_pm25, color = "Modulair")) +
+  geom_line(aes(y = nc_purpleair_cf1, color = "PurpleAir")) +
+  scale_color_manual(values = monitor_colors) +
+  labs(title = "PM2.5 Time Series at NC Site",
+       x = "Datetime",
+       y = "PM2.5 (µg/m³)",
+       color = "Monitor Type")
+
+# lt site 
+ggplot(lt_data, aes(x = datetime)) +
+  geom_line(aes(y = lt_thermo, color = "Thermo")) +
+  geom_line(aes(y = lt_modulair_pm25, color = "Modulair")) +
+  geom_line(aes(y = lt_purpleair_cf1, color = "PurpleAir")) +
+  scale_color_manual(values = monitor_colors) +
+  labs(title = "PM2.5 Time Series at LT Site",
+       x = "Datetime",
+       y = "PM2.5 (µg/m³)",
+       color = "Monitor Type")
+
+```
+
+
+## Build AQI Categories
+
+```{r}
+# For rp site:
+rp_data <- rp_data %>%
+  mutate(rp_modulair_aqi = aqiCategories(
+           rp_modulair_pm25,
+           pollutant = c("PM2.5"),
+           NAAQS = c("pm2.5_2024", "pm2.5"),
+           conversionArray = NULL
+         ),
+         rp_purpleair_aqi = aqiCategories(
+           rp_purpleair_cf1,
+           pollutant = "PM2.5",
+           NAAQS = "pm2.5_2024",
+           conversionArray = NULL
+         ),
+         rp_fem_aqi = aqiCategories(
+           rp_fem_avg,
+           pollutant = "PM2.5",
+           NAAQS = "pm2.5_2024",
+           conversionArray = NULL
+         ))
+
+# For nc site:
+nc_data <- nc_data %>%
+  mutate(nc_modulair_aqi = aqiCategories(
+           nc_modulair_pm25,
+           pollutant = "PM2.5",
+           NAAQS = "pm2.5_2024",
+           conversionArray = NULL
+         ),
+         nc_purpleair_aqi = aqiCategories(
+           nc_purpleair_cf1,
+           pollutant = "PM2.5",
+           NAAQS = "pm2.5_2024",
+           conversionArray = NULL
+         ),
+         nc_fem_aqi = aqiCategories(
+           nc_fem_avg,
+           pollutant = "PM2.5",
+           NAAQS = "pm2.5_2024",
+           conversionArray = NULL
+         ))
+
+# For lt site:
+lt_data <- lt_data %>%
+  mutate(lt_modulair_aqi = aqiCategories(
+           lt_modulair_pm25,
+           pollutant = "PM2.5",
+           NAAQS = "pm2.5_2024",
+           conversionArray = NULL
+         ),
+         lt_purpleair_aqi = aqiCategories(
+           lt_purpleair_cf1,
+           pollutant = "PM2.5",
+           NAAQS = "pm2.5_2024",
+           conversionArray = NULL
+         ),
+         lt_fem_aqi = aqiCategories(
+           lt_fem_avg,
+           pollutant = "PM2.5",
+           NAAQS = "pm2.5_2024",
+           conversionArray = NULL
+         ))
+
+```
+ 
+ 
+ ## Accuracy Metrics
+ 
+```{r}
+# Function to calculate accuracy metrics
+calculate_metrics <- function(true_values, predicted_values) {
+  # Remove missing values
+  valid_idx <- !is.na(true_values) & !is.na(predicted_values)
+  true_vals <- true_values[valid_idx]
+  pred_vals <- predicted_values[valid_idx]
+  
+  # Linear regression to obtain slope, intercept, and R-squared
+  fit <- lm(pred_vals ~ true_vals)
+  slope <- coef(fit)[2]
+  intercept <- coef(fit)[1]
+  r_squared <- summary(fit)$r.squared
+  
+  # Calculate residuals and error metrics
+  residuals <- true_vals - pred_vals
+  mae <- mean(abs(residuals))
+  rmse <- sqrt(mean(residuals^2))
+  nrmse <- rmse / mean(true_vals) * 100  # Expressed as percentage
+  
+  tibble(
+    R_squared = r_squared,
+    MAE = mae,
+    RMSE = rmse,
+    NRMSE = nrmse,
+    Slope = slope,
+    Intercept = intercept
+  )
+}
+
+# Overall metrics for rp site (modulair vs. fem)
+metrics_rp <- calculate_metrics(rp_data$rp_fem_avg, rp_data$rp_modulair_pm25)
+print(metrics_rp)
+
+# Accuracy metrics stratified by AQI category for rp site
+metrics_by_aqi_rp <- rp_data %>%
+  group_by(rp_fem_aqi) %>%
+  summarise(
+    R_squared = cor(rp_fem_avg, rp_modulair_pm25, use = "complete.obs")^2,
+    MAE = mean(abs(rp_fem_avg - rp_modulair_pm25), na.rm = TRUE),
+    RMSE = sqrt(mean((rp_fem_avg - rp_modulair_pm25)^2, na.rm = TRUE)),
+    NRMSE = (sqrt(mean((rp_fem_avg - rp_modulair_pm25)^2, na.rm = TRUE)) / mean(rp_fem_avg, na.rm = TRUE)) * 100
+  )
+kable(metrics_by_aqi_rp, caption = "Accuracy Metrics by AQI Category - rp Site")
+
+# Calculate frequency of AQI category matching (modulair vs. fem) for rp site
+aqi_match_frequency_rp <- rp_data %>%
+  mutate(modulair_aqi_match = (rp_modulair_aqi == rp_fem_aqi)) %>%
+  summarise(match_frequency = mean(modulair_aqi_match, na.rm = TRUE))
+print(aqi_match_frequency_rp)
+
+```
+ 
