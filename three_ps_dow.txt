@@ -1,8 +1,8 @@
 Week 7 - 3/9/25 Update
 
-Progress: Some great progress this weekend, filling out my exploratory data analysis and secondary data checks/preprocessing workbooks. The initial analysis I have done is indicating that using just the RP dataset is going to be the best bet for modeling at this stage, as the hourly concentrations bewteen the Modulair and FEM units and the other two sites have poor correlations, given the low absolute values of concentrations the samplers have seen since installation. Still, I want to structure my modeling and analysis scripts with the knowledge that there will be 5 total collocation sites in the future.
+Progress: Some great progress this weekend, filling out my exploratory data analysis and secondary data checks/preprocessing workbooks. The initial analysis I have done is indicating that using just the RP dataset is going to be the best bet for modeling at this stage, as the hourly concentrations bewteen the Modulair and FEM units and the other two sites have poor correlations, given the low absolute values of concentrations the samplers have seen since installation. Still, I want to structure my modeling and analysis scripts with the knowledge that there will be 5 or 6 total collocation sites in the future.
 
-Problems: Finding time to complete this analysis and modeling. All the pieces are there< i just need enough time to actually put everything together!
+Problems: Finding time to complete this analysis and modeling. All the pieces are there, I just need enough time to actually put everything together!
 
 Plans: I have two calendar-clear days this week to wrap up all my analysis before beginning on my paper.
 
