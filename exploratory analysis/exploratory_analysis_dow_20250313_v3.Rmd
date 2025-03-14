@@ -1,0 +1,267 @@
+---
+title: "Exploratory Analysis of MT DEQ FEM/Modulair PM2.5 Collocation Data"
+author: "Mason Dow"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+# Introduction
+
+This document performs an exploratory analysis of collocated FEM BAM and Modulair PM2.5 datasets from three MT DEQ sites (RP, NC, and LT). The objectives are to:
+
+- Generate summary tables of descriptive statistics (min, max, mean, standard deviation, etc.) for each parameter for each site.
+- Visualize PM2.5 trends 
+- Compute AQI categories for PM2.5 using the AirMontitor package.
+- Calculate a comprehensive set of accuracy metrics (including R², MAE, RMSE, normalized RMSE, regression slope, and intercept), overall and by AQI category for   each site.
+
+# Setup
+
+```{r setup, message=FALSE, warning=FALSE, echo=FALSE}
+
+# Load necessary libraries
+library(tidyverse)
+library(readxl)
+library(lubridate)
+library(scales)
+library(knitr)
+library(AirMonitor)  # for aqiCategories()
+library(here)
+
+source(here("functions", "analysis_functions.R"))
+
+theme_set(theme_minimal())
+
+# Color scheme for monitor types
+monitor_colors <- c("1020" = "yellow", 
+                    "1022" = "red", 
+                    "Thermo" = "tan", 
+                    "FEM Average" = "green",
+                    "Modulair" = "orange", 
+                    "PurpleAir" = "purple")
+
+# Define recoding maps for each site to convert raw column names to monitor labels
+rp_recode <- c("rp_1020" = "1020",
+               "rp_1022" = "1022",
+               "rp_thermo" = "Thermo",
+               "rp_fem_avg" = "FEM Average",
+               "rp_modulair_pm25" = "Modulair",
+               "rp_purpleair_cf1" = "PurpleAir")
+
+nc_recode <- c("nc_1020" = "1020",
+               "nc_modulair_pm25" = "Modulair",
+               "nc_purpleair_cf1" = "PurpleAir")
+
+lt_recode <- c("lt_thermo" = "Thermo",
+               "lt_modulair_pm25" = "Modulair",
+               "lt_purpleair_cf1" = "PurpleAir")
+```
+
+
+## Load Data
+
+```{r}
+# Load data from data folder 
+lt_data <- read_excel("../data/LT_data.xlsx")
+nc_data <- read_excel("../data/NC_data.xlsx")
+rp_data <- read_excel("../data/RP_data.xlsx")
+```
+
+## Descriptive Statistics
+
+```{r}
+
+rp_stats <- descriptive_stats(rp_data)
+nc_stats <- descriptive_stats(nc_data)
+lt_stats <- descriptive_stats(lt_data)
+
+kable(rp_stats, caption = "Descriptive Statistics - RP Site")
+kable(nc_stats, caption = "Descriptive Statistics - NC Site")
+kable(lt_stats, caption = "Descriptive Statistics - LT Site")
+
+```
+
+## Data Visualizations 
+
+### Boxplots of PM2.5 Concentration Distributions
+
+```{r}
+rp_stacked <- stack_monitor_data(rp_data, "datetime", names(rp_recode), rp_recode)
+ggplot(rp_stacked, aes(x = monitor, y = pm25, fill = monitor)) +
+  geom_boxplot() +
+  scale_fill_manual(values = monitor_colors) +
+  labs(title = "PM2.5 Distribution at RP Site", x = "Monitor", y = "PM2.5 (µg/m³)") +
+  theme(legend.position = "none")
+
+nc_stacked <- stack_monitor_data(nc_data, "datetime", names(nc_recode), nc_recode)
+ggplot(nc_stacked, aes(x = monitor, y = pm25, fill = monitor)) +
+  geom_boxplot() +
+  scale_fill_manual(values = monitor_colors) +
+  labs(title = "PM2.5 Distribution at NC Site", x = "Monitor", y = "PM2.5 (µg/m³)") +
+  theme(legend.position = "none")
+
+lt_stacked <- stack_monitor_data(lt_data, "datetime", names(lt_recode), lt_recode)
+ggplot(lt_stacked, aes(x = monitor, y = pm25, fill = monitor)) +
+  geom_boxplot() +
+  scale_fill_manual(values = monitor_colors) +
+  labs(title = "PM2.5 Distribution at LT Site", x = "Monitor", y = "PM2.5 (µg/m³)") +
+  theme(legend.position = "none")
+
+```
+
+### Time Series Line Graphs of PM2.5 Concentrations by Site
+
+```{r}
+# RP Site
+ggplot(rp_data, aes(x = datetime)) +
+  geom_line(aes(y = rp_1020, color = "1020")) +
+  geom_line(aes(y = rp_1022, color = "1022")) +
+  geom_line(aes(y = rp_thermo, color = "Thermo")) +
+  geom_line(aes(y = rp_modulair_pm25, color = "Modulair")) +
+  geom_line(aes(y = rp_purpleair_cf1, color = "PurpleAir")) +
+  scale_color_manual(values = monitor_colors) +
+  labs(title = "PM2.5 Time Series at RP Site", x = "Datetime", y = "PM2.5 (µg/m³)", color = "Monitor Type")
+
+# NC Site
+ggplot(nc_data, aes(x = datetime)) +
+  geom_line(aes(y = nc_1020, color = "1020")) +
+  geom_line(aes(y = nc_modulair_pm25, color = "Modulair")) +
+  geom_line(aes(y = nc_purpleair_cf1, color = "PurpleAir")) +
+  scale_color_manual(values = monitor_colors) +
+  labs(title = "PM2.5 Time Series at NC Site", x = "Datetime", y = "PM2.5 (µg/m³)", color = "Monitor Type")
+
+# LT Site
+ggplot(lt_data, aes(x = datetime)) +
+  geom_line(aes(y = lt_thermo, color = "Thermo")) +
+  geom_line(aes(y = lt_modulair_pm25, color = "Modulair")) +
+  geom_line(aes(y = lt_purpleair_cf1, color = "PurpleAir")) +
+  scale_color_manual(values = monitor_colors) +
+  labs(title = "PM2.5 Time Series at LT Site", x = "Datetime", y = "PM2.5 (µg/m³)", color = "Monitor Type")
+
+```
+
+### Scatterplot w/ Line of Best Fit & 1:1 by Site
+
+```{r}
+
+plot_rp <- plot_fit(rp_data, mod_col = "rp_modulair_pm25", fem_col = "rp_fem_avg", site_label = "RP")
+print(plot_rp)
+
+plot_nc <- plot_fit(nc_data, mod_col = "nc_modulair_pm25", fem_col = "nc_1020", site_label = "NC")
+print(plot_nc)
+
+plot_lt <- plot_fit(lt_data, mod_col = "lt_modulair_pm25", fem_col = "lt_thermo", site_label = "LT")
+print(plot_lt)
+
+```
+
+
+## Build AQI Categories by Site 
+
+```{r}
+# Add AQI categories using AirMonitor's aqiCategories() function.
+rp_data <- rp_data %>%
+  mutate(rp_modulair_aqi = aqiCategories(rp_modulair_pm25, pollutant = "PM2.5", NAAQS = "PM2.5_2024"),
+         rp_purpleair_aqi = aqiCategories(rp_purpleair_cf1, pollutant = "PM2.5", NAAQS = "PM2.5_2024"),
+         rp_fem_aqi = aqiCategories(rp_fem_avg, pollutant = "PM2.5", NAAQS = "PM2.5_2024"))
+
+nc_data <- nc_data %>%
+  mutate(nc_modulair_aqi = aqiCategories(nc_modulair_pm25, pollutant = "PM2.5", NAAQS = "PM2.5_2024"),
+         nc_purpleair_aqi = aqiCategories(nc_purpleair_cf1, pollutant = "PM2.5", NAAQS = "PM2.5_2024"),
+         nc_fem_aqi = aqiCategories(nc_1020, pollutant = "PM2.5", NAAQS = "PM2.5_2024"))
+
+lt_data <- lt_data %>%
+  mutate(lt_modulair_aqi = aqiCategories(lt_modulair_pm25, pollutant = "PM2.5", NAAQS = "PM2.5_2024"),
+         lt_purpleair_aqi = aqiCategories(lt_purpleair_cf1, pollutant = "PM2.5", NAAQS = "PM2.5_2024"),
+         lt_fem_aqi = aqiCategories(lt_thermo, pollutant = "PM2.5", NAAQS = "PM2.5_2024"))
+```
+ 
+## Accuracy Metrics
+
+### Metrics by Site & AQI Category
+ 
+```{r}
+# Apply accuracy metrics functions to all three datasets
+
+datasets <- list(rp = rp_data, nc = nc_data, lt = lt_data)
+results <- list()
+
+col_info <- list(
+  rp = list(fem = "rp_fem_avg", mod = "rp_modulair_pm25", fem_aqi = "rp_fem_aqi", mod_aqi = "rp_modulair_aqi"),
+  nc = list(fem = "nc_1020", mod = "nc_modulair_pm25", fem_aqi = "nc_fem_aqi", mod_aqi = "nc_modulair_aqi"),
+  lt = list(fem = "lt_thermo", mod = "lt_modulair_pm25", fem_aqi = "lt_fem_aqi", mod_aqi = "lt_modulair_aqi")
+)
+
+for (site in names(datasets)) {
+  results[[site]] <- calculate_all_metrics(
+    data = datasets[[site]],
+    fem_col = col_info[[site]]$fem,
+    mod_col = col_info[[site]]$mod,
+    fem_aqi_col = col_info[[site]]$fem_aqi,
+    mod_aqi_col = col_info[[site]]$mod_aqi
+  )
+}
+
+overall_table <- bind_rows(lapply(names(results), function(site) {
+  results[[site]]$overall %>% mutate(site = site)
+}))
+overall_table <- overall_table %>% select(site, everything())
+kable(overall_table, caption = "Overall Accuracy Metrics by Site (FEM vs. Modulair)")
+
+for (site in names(results)) {
+  print(kable(results[[site]]$stratified, caption = paste("Accuracy Metrics by AQI Category -", site, "Site")))
+}
+```
+ 
+### Create Combined Dataset 
+ 
+```{r}
+# Combine datasets 
+
+rp_combined <- rp_data %>%
+  rename(
+    fem_avg = rp_fem_avg,
+    mod = rp_modulair_pm25,
+    fem_aqi = rp_fem_aqi,
+    mod_aqi = rp_modulair_aqi
+  )
+
+nc_combined <- nc_data %>%
+  rename(
+    fem_avg = nc_1020,
+    mod = nc_modulair_pm25,
+    fem_aqi = nc_fem_aqi,
+    mod_aqi = nc_modulair_aqi
+  )
+
+lt_combined <- lt_data %>%
+  rename(
+    fem_avg = lt_thermo,
+    mod = lt_modulair_pm25,
+    fem_aqi = lt_fem_aqi,
+    mod_aqi = lt_modulair_aqi
+  )
+
+combined_data <- bind_rows(rp_combined, nc_combined, lt_combined)
+
+```
+
+### Calculate Overall Cccuracy Metrics 
+
+```{r}
+# apply accuracy metrics functions to combined dataset
+
+combined_metrics <- calculate_all_metrics(
+  data = combined_data,
+  fem_col = "fem_avg",
+  mod_col = "mod",
+  fem_aqi_col = "fem_aqi",
+  mod_aqi_col = "mod_aqi"
+)
+
+# Display the overall metrics for the combined dataset
+print(combined_metrics$overall)
+
+# Display the stratified accuracy metrics by AQI category for the combined dataset
+kable(combined_metrics$stratified, caption = "Accuracy Metrics by AQI Category - Combined Data")
+```
+

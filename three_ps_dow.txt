@@ -1,3 +1,13 @@
+Week 8 - 3/14/25 Update
+
+Progress: Excellent progress this week. EDA went very well, including the buildout of accuracy metrics functions and saving those in a callable function file. Additionally, the first round of modeling has been completed, wherein I trained and tested a linear model (Modulair PM2.5 and RH as inputs), as well as calculated and compared the accuracy using the EPA U.S wide PurpleAir correction factor equation (Barkjohn, 2022) for the Modulair data. Non-rp data has been and will be ignored for this effort due to some suspect FEM values at the 2nd longest-running collocation site. 
+
+Problems: Finding time to complete this analysis and modeling. All the pieces are there, I just need enough time to actually put everything together!Didn't see the accuracy improvements I'd like, but they did actually improve (AQI category matching for the FEM average at RP).
+
+Plans: I am on vacation this week, non-linear modeling and evaluation will happen next weekend. Paper outline and all fillable sections will happen over spring break (likely written on a plane)--only things missing will be non-linear modeling and final conclusions. 
+
+Hours: 15 this week.
+
 Week 7 - 3/9/25 Update
 
 Progress: Some great progress this weekend, filling out my exploratory data analysis and secondary data checks/preprocessing workbooks. The initial analysis I have done is indicating that using just the RP dataset is going to be the best bet for modeling at this stage, as the hourly concentrations bewteen the Modulair and FEM units and the other two sites have poor correlations, given the low absolute values of concentrations the samplers have seen since installation. Still, I want to structure my modeling and analysis scripts with the knowledge that there will be 5 or 6 total collocation sites in the future.

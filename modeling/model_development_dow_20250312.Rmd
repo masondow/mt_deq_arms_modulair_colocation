@@ -1,0 +1,294 @@
+---
+title: "Modulair PM2.5 Model Development"
+author: "Mason Dow"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+# Introduction
+
+
+```{r setup, warning=FALSE, include=FALSE, echo=FALSE}
+library(tidyverse)
+library(tidymodels)
+library(readxl)
+library(lubridate)
+library(AirMonitor)
+library(here)
+
+source(here("functions", "analysis_functions.R"))
+
+theme_set(theme_minimal())
+
+# For tidymodels, seed by date for reproducibility.
+
+set.seed(20250314)
+```
+
+# Introduction
+
+# Load Data 
+
+```{r}
+# Load data from data folder 
+lt_data <- read_excel("../data/LT_data.xlsx")
+nc_data <- read_excel("../data/NC_data.xlsx")
+rp_data <- read_excel("../data/RP_data.xlsx")
+```
+
+# Transform Data
+
+```{r}
+# Add AQI categories using AirMonitor's aqiCategories() function.
+rp_data <- rp_data %>%
+  mutate(rp_modulair_aqi = aqiCategories(rp_modulair_pm25, pollutant = "PM2.5", NAAQS = "PM2.5_2024"),
+         rp_purpleair_aqi = aqiCategories(rp_purpleair_cf1, pollutant = "PM2.5", NAAQS = "PM2.5_2024"),
+         rp_fem_aqi = aqiCategories(rp_fem_avg, pollutant = "PM2.5", NAAQS = "PM2.5_2024"))
+
+nc_data <- nc_data %>%
+  mutate(nc_modulair_aqi = aqiCategories(nc_modulair_pm25, pollutant = "PM2.5", NAAQS = "PM2.5_2024"),
+         nc_purpleair_aqi = aqiCategories(nc_purpleair_cf1, pollutant = "PM2.5", NAAQS = "PM2.5_2024"),
+         nc_fem_aqi = aqiCategories(nc_1020, pollutant = "PM2.5", NAAQS = "PM2.5_2024"))
+
+lt_data <- lt_data %>%
+  mutate(lt_modulair_aqi = aqiCategories(lt_modulair_pm25, pollutant = "PM2.5", NAAQS = "PM2.5_2024"),
+         lt_purpleair_aqi = aqiCategories(lt_purpleair_cf1, pollutant = "PM2.5", NAAQS = "PM2.5_2024"),
+         lt_fem_aqi = aqiCategories(lt_thermo, pollutant = "PM2.5", NAAQS = "PM2.5_2024"))
+```
+
+```{r}
+# Recode columns (& merge datasets, ignoring merge for now)
+rp_data <- rp_data %>%
+  rename(fem_avg = rp_fem_avg,
+         mod_pm25 = rp_modulair_pm25,
+         fem_aqi = rp_fem_aqi,
+         mod_aqi = rp_modulair_aqi,
+         mod_rh = rp_modulair_rh)  
+
+# #nc_combined <- nc_data %>%
+#   rename(fem_avg = nc_1020,
+#          mod_pm25 = nc_modulair_pm25,
+#          fem_aqi = nc_fem_aqi,
+#          mod_aqi = nc_modulair_aqi,
+#          mod_rh = nc_modulair_rh)
+# 
+# lt_combined <- lt_data %>%
+#   rename(fem_avg = lt_thermo,
+#          mod_pm25 = lt_modulair_pm25,
+#          fem_aqi = lt_fem_aqi,
+#          mod_aqi = lt_modulair_aqi,
+#          mod_rh = lt_modulair_rh)
+
+combined_modeling_data <- rp_data # only RP for now
+
+```
+
+# Model Development and Testing via Tidymodels 
+
+## Split Data into Training/Testing
+
+```{r}
+data_split <- initial_split(combined_modeling_data, prop = 0.8)
+training_data <- training(data_split)
+testing_data  <- testing(data_split)
+```
+
+## Recipes
+
+```{r}
+# Base recipe using mod and rh as predictors for fem_avg
+base_recipe <- recipe(fem_avg ~ mod_pm25 + mod_rh, data = training_data)
+
+# Quadratic recipe: add polynomial term for 'mod'
+quad_recipe <- base_recipe %>%
+  step_poly(mod_pm25, degree = 2, options = list(raw = TRUE))
+
+# Quadratic + RH interaction recipe: create interaction term between PM2.5 and Rh
+quad_rh_recipe <- quad_recipe %>%
+  step_interact(terms = ~ mod_pm25 * mod_rh - mod_pm25 - mod_rh)
+
+# more later
+
+```
+
+## Model Specifications
+
+```{r}
+# Linear regression model (Model A baseline)
+linear_spec <- linear_reg() %>% 
+  set_engine("lm")
+
+# For quadratic model (Model B), the recipe above includes a polynomial term.
+quad_spec <- linear_reg() %>%
+  set_engine("lm")
+
+# We can use the same model specification for the more complex recipes.
+# Later, we might explore non-linear models via nls() or gam(), but for now we start with linear regression.
+
+```
+
+
+## Workflows
+
+```{r}
+# Workflow for Model A (baseline: linear model with mod and rh)
+wf_linear <- workflow() %>%
+  add_model(linear_spec) %>%
+  add_recipe(base_recipe)
+
+# Workflow for Model B (quadratic: using quad_recipe)
+wf_quad <- workflow() %>%
+  add_model(quad_spec) %>%
+  add_recipe(quad_recipe)
+
+# Workflow for Model D/E (quadratic + RH interaction)
+wf_quad_rh <- workflow() %>%
+  add_model(quad_spec) %>%
+  add_recipe(quad_rh_recipe)
+```
+
+
+## Model Training
+
+```{r}
+# Fit each workflow on the training data.
+fit_linear <- wf_linear %>% fit(data = training_data)
+fit_quad   <- wf_quad %>% fit(data = training_data)
+#fit_quad_rh <- wf_quad_rh %>% fit(data = training_data)
+
+```
+
+## Model Evaluation 
+
+```{r}
+# Linear Model (PM2.5 and RH)
+
+# Generate predictions on the testing set using the linear model.
+lm_predictions <- predict(fit_linear, new_data = testing_data) %>% 
+  bind_cols(testing_data) %>%
+  # Recalculate AQI categories using the predicted (corrected) PM2.5 values.
+  mutate(lm_corrected_mod_aqi = aqiCategories(.pred, pollutant = "PM2.5", NAAQS = "PM2.5_2024"))
+
+# Evaluate performance using yardstick metrics: RMSE, R², and MAE.
+performance_metrics <- lm_predictions %>%
+  metrics(truth = fem_avg, estimate = .pred) %>%
+  filter(.metric %in% c("rmse", "rsq", "mae"))
+
+performance_metrics %>% 
+  knitr::kable(caption = "Performance Metrics (80/20 Split) for Linear Model")
+
+# Calculate overall and stratified accuracy metrics using our custom function.
+testing_accuracy <- calculate_all_metrics(
+  data = lm_predictions,
+  fem_col = "fem_avg",
+  mod_col = ".pred",
+  fem_aqi_col = "fem_aqi",
+  mod_aqi_col = "lm_corrected_mod_aqi"
+)
+
+# Display overall accuracy metrics for the testing set.
+testing_accuracy$overall %>% 
+  knitr::kable(caption = "Overall LM Correction Accuracy Metrics on Testing Dataset")
+
+# Display stratified accuracy metrics by AQI category for the testing set.
+knitr::kable(testing_accuracy$stratified, caption = "Stratified LM Correction Accuracy Metrics by AQI Category - Testing Dataset")
+
+```
+
+### Applying Linear Model to Entire RP Dataset
+
+```{r}
+# Fit the linear model (baseline) on the entire combined_modeling_data dataset.
+final_fit_linear <- wf_linear %>% 
+  fit(data = combined_modeling_data)
+
+# Generate predictions on the entire dataset and recalculate the AQI categories using the corrected values.
+lm_predictions <- predict(final_fit_linear, new_data = combined_modeling_data) %>% 
+  bind_cols(combined_modeling_data) %>%
+  mutate(corrected_mod_aqi = aqiCategories(.pred, pollutant = "PM2.5", NAAQS = "PM2.5_2024"))
+
+# Evaluate performance using yardstick metrics (RMSE, R², and MAE).
+final_performance_metrics <- lm_predictions %>%
+  metrics(truth = fem_avg, estimate = .pred) %>%
+  filter(.metric %in% c("rmse", "rsq", "mae"))
+
+final_performance_metrics %>% 
+  knitr::kable(caption = "Performance Metrics (Entire Dataset) for Linear Model")
+
+# Calculate overall and stratified accuracy metrics using our custom function.
+final_accuracy_metrics <- calculate_all_metrics(
+  data = lm_predictions,
+  fem_col = "fem_avg",
+  mod_col = ".pred",
+  fem_aqi_col = "fem_aqi",
+  mod_aqi_col = "corrected_mod_aqi"
+)
+
+# Display the overall accuracy metrics.
+final_accuracy_metrics$overall %>% 
+  knitr::kable(caption = "Overall Accuracy Metrics on Entire Dataset")
+
+# Display the stratified accuracy metrics by AQI category.
+knitr::kable(final_accuracy_metrics$stratified, caption = "Stratified Accuracy Metrics by AQI Category - Entire Dataset")
+
+```
+
+
+## Assessing PurpleAir US-wide correction equation for Modulair data:
+
+```{r}
+# Apply the U.S. correction equation to the Modulair measurements
+combined_modeling_data <- combined_modeling_data %>%
+  mutate(
+    pa_us_correction = 0.524 * mod_pm25 - 0.0862 * mod_rh + 5.75,
+    pa_corrected_mod_aqi = aqiCategories(pa_us_correction, pollutant = "PM2.5", NAAQS = "PM2.5_2024")
+  )
+
+# Calculate accuracy metrics for the raw Modulair data
+raw_metrics <- calculate_all_metrics(
+  data = combined_modeling_data,
+  fem_col = "fem_avg",
+  mod_col = "mod_pm25",
+  fem_aqi_col = "fem_aqi",
+  mod_aqi_col = "mod_aqi"
+)
+
+# Calculate accuracy metrics for the data corrected using the U.S. equation
+corrected_metrics <- calculate_all_metrics(
+  data = combined_modeling_data,
+  fem_col = "fem_avg",
+  mod_col = "pa_us_correction",
+  fem_aqi_col = "fem_aqi",
+  mod_aqi_col = "pa_corrected_mod_aqi"
+)
+
+# Print overall accuracy metrics for raw and corrected data
+raw_metrics$overall %>% 
+  knitr::kable(caption = "Overall Accuracy Metrics: Raw Modulair Data")
+
+corrected_metrics$overall %>% 
+  knitr::kable(caption = "Overall Accuracy Metrics: U.S. Correction Applied")
+
+# Optionally, compare stratified metrics by AQI category as well
+knitr::kable(corrected_metrics$stratified, caption = "Stratified Accuracy Metrics by AQI Category (Corrected Data)")
+
+```
+
+## Data Visulizations for Corrected Modulair PM2.5 Data
+
+```{r}
+
+# LM
+
+plot_rp <- plot_fit(lm_predictions, mod_col = ".pred", fem_col = "fem_avg", site_label = "RP")
+print(plot_rp)
+```
+
+```{r}
+
+# PA US-Wide Correction Equation
+
+plot_rp <- plot_fit(combined_modeling_data, mod_col = "pa_us_correction", fem_col = "fem_avg", site_label = "RP")
+print(plot_rp)
+```
+
