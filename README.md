@@ -13,10 +13,10 @@ This project collects data from and evaluates colocated PM2.5 concentration meas
 
 ## 📂 Repository Structure
 ```
-📂 data/          – Stores processed datasets.  
+📂 data/          – Stores processed datasets (to be ignored in final update). 
 📂 exploratory analysis/     – Jupyter/RMarkdown notebooks for EDA.
 📂 modeling/      – Jupyter/RMarkdown notebooks for modeling and assessment.  
-📂 functions/     – Functions for data retrieval and pre-processing.
+📂 functions/     – Python and R functions for data retrieval and pre-processing.
 📂 reports/       – Final figures, tables, and project summaries.  
 📄 README.md      – Overview of the project.  
 📄 three_ps_dow.txt     – Weekly project updates  
@@ -42,10 +42,19 @@ This project collects data from and evaluates colocated PM2.5 concentration meas
      QUANTAQ_API_KEY="your_secret_api_key"
      ```
    - **DO NOT COMMIT `.env`!** It is ignored by `.gitignore`.
+   
+## Example Analysis and Modeling Steps
+1.
+
+2.
+
+3.
+
 
 ## 📊 Data Sources
-- **QuantAQ Modulair API** (retrieves sensor data).
-- **AirVision SQL Database** (FEM reference data, accessed manually through GUI or via AVconn package, not available to public).
+- **QuantAQ Cloud Modulair API** (cloud-hosted sensor data).
+- **ARMS AirVision Microsoft SQL Server Database** (FEM reference data, accessed manually through AirVision GUI or via AVconn package, not available to public).
+- **ARMS SQLite Database** (ARMS owned, not available to public)
 
 ## 📝 License & Attribution
 <Optional: Any usage terms, license, or acknowledgments I may want (def acknowledgments!)>

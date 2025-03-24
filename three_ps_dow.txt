@@ -1,3 +1,13 @@
+Week 9/10 - 3/24/25 Update
+
+Progress: Submitted a first draft of my report on Sunday night. The report writing went well--I think I am striking the balance between writing a report on my findings exclusively for my ARMS section members as well as a more broad whitepaper explaining the entire project purpose and process. The report has all by one section of my figures I want to include for explaining my exploratory data analysis, and lacks text for the majority of takeaways there. Those sections, but the writeup of the modeling effort, are to come in a second draft. 
+
+Problems: I need to find time to complete my final round of modeling with non-linear and other interaction terms this week such that I can put a bow on the whole project. 
+
+Plans: Final modeling steps and assessment of those models will happen this week. This weekend I will craft my digital product, which I discussed by Andrew the week prior
+
+Hours: 8 this week writing my report's first draft. 
+
 Week 8 - 3/14/25 Update
 
 Progress: Excellent progress this week. EDA went very well, including the buildout of accuracy metrics functions and saving those in a callable function file. Additionally, the first round of modeling has been completed, wherein I trained and tested a linear model (Modulair PM2.5 and RH as inputs), as well as calculated and compared the accuracy using the EPA U.S wide PurpleAir correction factor equation (Barkjohn, 2022) for the Modulair data. Non-rp data has been and will be ignored for this effort due to some suspect FEM values at the 2nd longest-running collocation site. 
