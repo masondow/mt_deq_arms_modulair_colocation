@@ -10,7 +10,7 @@ output: html_document
 This document performs an exploratory analysis of collocated FEM BAM and Modulair PM2.5 datasets from three MT DEQ sites (RP, NC, and LT). The objectives are to:
 
 - Generate summary tables of descriptive statistics (min, max, mean, standard deviation, etc.) for each parameter for each site.
-- Visualize PM2.5 trends 
+- Visualize PM2.5 trends and distributions by site
 - Compute AQI categories for PM2.5 using the AirMontitor package.
 - Calculate a comprehensive set of accuracy metrics (including R², MAE, RMSE, normalized RMSE, regression slope, and intercept), overall and by AQI category for   each site.
 
@@ -26,17 +26,53 @@ library(scales)
 library(knitr)
 library(AirMonitor)  # for aqiCategories()
 library(here)
+library(GGally)
 
 source(here("functions", "analysis_functions.R"))
 
 theme_set(theme_minimal())
+```
 
-# Color scheme for monitor types
-monitor_colors <- c("1020" = "yellow", 
-                    "1022" = "red", 
-                    "Thermo" = "tan", 
-                    "FEM Average" = "green",
-                    "Modulair" = "orange", 
+
+# Load Data
+
+```{r}
+# Load data from data folder 
+lt_data <- read_excel("../data/LT_data.xlsx")
+nc_data <- read_excel("../data/NC_data.xlsx")
+rp_data <- read_excel("../data/RP_data.xlsx")
+```
+
+# Data Transformations
+
+## Calculate 24 hr. Averages
+
+```{r}
+# uses averaging_threshold and daily_averages functions from function file
+# applies 75% (18 hr.) threshold to hourly values to caclulate daily averages 
+
+# Apply the function to each dataset:
+rp_daily <- daily_averages(rp_data)
+nc_daily <- daily_averages(nc_data)
+lt_daily <- daily_averages(lt_data)
+
+# Look at the first few rows of the RP daily averages:
+head(rp_daily)
+
+
+```
+
+
+## Color Code by Monitor Setup
+
+```{r}
+# Color scheme for graphing by monitor types
+
+monitor_colors <- c("1020" = "#56B4E9", 
+                    "1022" = "#D55E00", 
+                    "Thermo" = "#009E73", 
+                    "FEM Average" = "red",
+                    "Modulair" = "#E69F00", 
                     "PurpleAir" = "purple")
 
 # Define recoding maps for each site to convert raw column names to monitor labels
@@ -56,108 +92,26 @@ lt_recode <- c("lt_thermo" = "Thermo",
                "lt_purpleair_cf1" = "PurpleAir")
 ```
 
-
-## Load Data
+## Define AQI Breakpoints 
 
 ```{r}
-# Load data from data folder 
-lt_data <- read_excel("../data/LT_data.xlsx")
-nc_data <- read_excel("../data/NC_data.xlsx")
-rp_data <- read_excel("../data/RP_data.xlsx")
+# Standard US daily PM2.5 AQI breakpoints (24-hr, updated 2024)
+# Good: 0.0 - 9.0
+# Moderate: 9.1 - 35.4
+# Unhealthy for Sensitive Groups: 35.5 - 55.4 
+# Unhealthy: 55.5 - 125.4
+# Very Unhealthy: 125.5 - 225.4
+# Hazardous: 225.5 +
+
+aqi_breaks  <- c(9, 35.4, 55.4, 125.4, 225.4)
+aqi_colors  <- c("green", "yellow", "orange", "red", "purple")
 ```
 
-## Descriptive Statistics
+## Calculate Corresponding AQI Categories by site and PM2.5 parameter 
 
 ```{r}
+# Hourly Data
 
-rp_stats <- descriptive_stats(rp_data)
-nc_stats <- descriptive_stats(nc_data)
-lt_stats <- descriptive_stats(lt_data)
-
-kable(rp_stats, caption = "Descriptive Statistics - RP Site")
-kable(nc_stats, caption = "Descriptive Statistics - NC Site")
-kable(lt_stats, caption = "Descriptive Statistics - LT Site")
-
-```
-
-## Data Visualizations 
-
-### Boxplots of PM2.5 Concentration Distributions
-
-```{r}
-rp_stacked <- stack_monitor_data(rp_data, "datetime", names(rp_recode), rp_recode)
-ggplot(rp_stacked, aes(x = monitor, y = pm25, fill = monitor)) +
-  geom_boxplot() +
-  scale_fill_manual(values = monitor_colors) +
-  labs(title = "PM2.5 Distribution at RP Site", x = "Monitor", y = "PM2.5 (µg/m³)") +
-  theme(legend.position = "none")
-
-nc_stacked <- stack_monitor_data(nc_data, "datetime", names(nc_recode), nc_recode)
-ggplot(nc_stacked, aes(x = monitor, y = pm25, fill = monitor)) +
-  geom_boxplot() +
-  scale_fill_manual(values = monitor_colors) +
-  labs(title = "PM2.5 Distribution at NC Site", x = "Monitor", y = "PM2.5 (µg/m³)") +
-  theme(legend.position = "none")
-
-lt_stacked <- stack_monitor_data(lt_data, "datetime", names(lt_recode), lt_recode)
-ggplot(lt_stacked, aes(x = monitor, y = pm25, fill = monitor)) +
-  geom_boxplot() +
-  scale_fill_manual(values = monitor_colors) +
-  labs(title = "PM2.5 Distribution at LT Site", x = "Monitor", y = "PM2.5 (µg/m³)") +
-  theme(legend.position = "none")
-
-```
-
-### Time Series Line Graphs of PM2.5 Concentrations by Site
-
-```{r}
-# RP Site
-ggplot(rp_data, aes(x = datetime)) +
-  geom_line(aes(y = rp_1020, color = "1020")) +
-  geom_line(aes(y = rp_1022, color = "1022")) +
-  geom_line(aes(y = rp_thermo, color = "Thermo")) +
-  geom_line(aes(y = rp_modulair_pm25, color = "Modulair")) +
-  geom_line(aes(y = rp_purpleair_cf1, color = "PurpleAir")) +
-  scale_color_manual(values = monitor_colors) +
-  labs(title = "PM2.5 Time Series at RP Site", x = "Datetime", y = "PM2.5 (µg/m³)", color = "Monitor Type")
-
-# NC Site
-ggplot(nc_data, aes(x = datetime)) +
-  geom_line(aes(y = nc_1020, color = "1020")) +
-  geom_line(aes(y = nc_modulair_pm25, color = "Modulair")) +
-  geom_line(aes(y = nc_purpleair_cf1, color = "PurpleAir")) +
-  scale_color_manual(values = monitor_colors) +
-  labs(title = "PM2.5 Time Series at NC Site", x = "Datetime", y = "PM2.5 (µg/m³)", color = "Monitor Type")
-
-# LT Site
-ggplot(lt_data, aes(x = datetime)) +
-  geom_line(aes(y = lt_thermo, color = "Thermo")) +
-  geom_line(aes(y = lt_modulair_pm25, color = "Modulair")) +
-  geom_line(aes(y = lt_purpleair_cf1, color = "PurpleAir")) +
-  scale_color_manual(values = monitor_colors) +
-  labs(title = "PM2.5 Time Series at LT Site", x = "Datetime", y = "PM2.5 (µg/m³)", color = "Monitor Type")
-
-```
-
-### Scatterplot w/ Line of Best Fit & 1:1 by Site
-
-```{r}
-
-plot_rp <- plot_fit(rp_data, mod_col = "rp_modulair_pm25", fem_col = "rp_fem_avg", site_label = "RP")
-print(plot_rp)
-
-plot_nc <- plot_fit(nc_data, mod_col = "nc_modulair_pm25", fem_col = "nc_1020", site_label = "NC")
-print(plot_nc)
-
-plot_lt <- plot_fit(lt_data, mod_col = "lt_modulair_pm25", fem_col = "lt_thermo", site_label = "LT")
-print(plot_lt)
-
-```
-
-
-## Build AQI Categories by Site 
-
-```{r}
 # Add AQI categories using AirMonitor's aqiCategories() function.
 rp_data <- rp_data %>%
   mutate(rp_modulair_aqi = aqiCategories(rp_modulair_pm25, pollutant = "PM2.5", NAAQS = "PM2.5_2024"),
@@ -173,14 +127,323 @@ lt_data <- lt_data %>%
   mutate(lt_modulair_aqi = aqiCategories(lt_modulair_pm25, pollutant = "PM2.5", NAAQS = "PM2.5_2024"),
          lt_purpleair_aqi = aqiCategories(lt_purpleair_cf1, pollutant = "PM2.5", NAAQS = "PM2.5_2024"),
          lt_fem_aqi = aqiCategories(lt_thermo, pollutant = "PM2.5", NAAQS = "PM2.5_2024"))
+
+
+```
+
+```{r}
+# Daily Data
+
+# Add AQI categories using AirMonitor's aqiCategories() function.
+rp_daily <- rp_daily %>%
+  mutate(rp_modulair_aqi = aqiCategories(rp_modulair_pm25, pollutant = "PM2.5", NAAQS = "PM2.5_2024"),
+         rp_purpleair_aqi = aqiCategories(rp_purpleair_cf1, pollutant = "PM2.5", NAAQS = "PM2.5_2024"),
+         rp_fem_aqi = aqiCategories(rp_fem_avg, pollutant = "PM2.5", NAAQS = "PM2.5_2024"))
+
+nc_daily <- nc_daily %>%
+  mutate(nc_modulair_aqi = aqiCategories(nc_modulair_pm25, pollutant = "PM2.5", NAAQS = "PM2.5_2024"),
+         nc_purpleair_aqi = aqiCategories(nc_purpleair_cf1, pollutant = "PM2.5", NAAQS = "PM2.5_2024"),
+         nc_fem_aqi = aqiCategories(nc_1020, pollutant = "PM2.5", NAAQS = "PM2.5_2024"))
+
+lt_daily <- lt_daily %>%
+  mutate(lt_modulair_aqi = aqiCategories(lt_modulair_pm25, pollutant = "PM2.5", NAAQS = "PM2.5_2024"),
+         lt_purpleair_aqi = aqiCategories(lt_purpleair_cf1, pollutant = "PM2.5", NAAQS = "PM2.5_2024"),
+         lt_fem_aqi = aqiCategories(lt_thermo, pollutant = "PM2.5", NAAQS = "PM2.5_2024"))
+
+
+```
+
+## Create Combined Dataset with Consitent Column Names
+
+```{r}
+# For all datasets, rename site-specific columns to common names via *_combined tables
+
+rp_combined <- rp_data %>%
+  rename(
+    fem_avg = rp_fem_avg,            # FEM measurement
+    mod_pm25 = rp_modulair_pm25,       # Modulair PM2.5 measurement
+    mod_rh = rp_modulair_rh,           # Modulair measured RH
+    mod_tempc = rp_modulair_tempc,     # Modulair measured ambient temperature (°C)
+    fem_aqi = rp_fem_aqi,              # FEM AQI category
+    mod_aqi = rp_modulair_aqi          # Modulair AQI category
+  )
+
+nc_combined <- nc_data %>%
+  rename(
+    fem_avg = nc_1020,          # FEM measurement from NC
+    mod_pm25 = nc_modulair_pm25,  # Modulair PM2.5 measurement
+    fem_aqi = nc_fem_aqi,         # FEM AQI category
+    mod_aqi = nc_modulair_aqi,     # Modulair AQI category
+    mod_rh = nc_modulair_rh,       # Modulair measured RH
+    mod_tempc = nc_modulair_tempc,     # Modulair measured ambient temperature (°C)
+  )
+
+lt_combined <- lt_data %>%
+  rename(
+    fem_avg = lt_thermo,         # FEM measurement from LT
+    mod_pm25 = lt_modulair_pm25,   # Modulair PM2.5 measurement
+    fem_aqi = lt_fem_aqi,          # FEM AQI category
+    mod_aqi = lt_modulair_aqi,      # Modulair AQI category
+    mod_rh = lt_modulair_rh,        # Modulair measured RH
+    mod_tempc = lt_modulair_tempc,     # Modulair measured ambient temperature (°C)
+  )
+
+# Combine the datasets into one dataset
+combined_data <- bind_rows(rp_combined, nc_combined, lt_combined)
+
+# Select only the columns that follow our standardized naming scheme (plus datetime and siteid)
+combined_data <- combined_modeling_data %>%
+  select(siteid, datetime, fem_avg, mod_pm25, mod_rh, mod_tempc, fem_aqi, mod_aqi)
+
+
+# Check the first few rows to verify the merge worked as expected.
+head(combined_data)
+
+```
+
+
+# Calculate Descriptive Statistics
+
+```{r}
+# build out descriptive statistics tables by site
+# uses descriptive_stats function from function file 
+
+rp_stats <- descriptive_stats(rp_data)
+nc_stats <- descriptive_stats(nc_data)
+lt_stats <- descriptive_stats(lt_data)
+
+kable(rp_stats, caption = "Descriptive Statistics - RP Site")
+kable(nc_stats, caption = "Descriptive Statistics - NC Site")
+kable(lt_stats, caption = "Descriptive Statistics - LT Site")
+```
+
+# Data Visualizations and Explorations 
+
+## Boxplots of PM2.5 Concentration Distributions
+
+```{r}
+# create boxplots of PM2.5 distributions by site and monitor
+# uses stack_monitor_data function from function file
+
+rp_stacked <- stack_monitor_data(rp_data, "datetime", names(rp_recode), rp_recode) # create "stacked" monitor data to invert columns and rows for plotting
+ggplot(rp_stacked, aes(x = monitor, y = pm25, fill = monitor)) +
+  geom_boxplot() +
+  scale_fill_manual(values = monitor_colors) +
+  labs(title = "PM2.5 Distribution at RP Site", x = "Monitor", y = "PM2.5 (µg/m³)") +
+  geom_hline( # Add annotated line at each AQI breakpoint
+    yintercept = aqi_breaks,
+    color = aqi_colors,
+    linetype = "dashed"
+  ) +
+  annotate("text", x = Inf, y = 12,
+           label = "Good",
+           vjust = -0.5, hjust = 1.1) +
+  annotate("text", x = Inf, y = 35.4,
+           label = "Moderate",
+           vjust = -0.5, hjust = 1.1) +
+  annotate("text", x = Inf, y = 55.4,
+           label = "USG",
+           vjust = -0.5, hjust = 1.1) +
+  annotate("text", x = Inf, y = 150.4,
+           label = "Unhealthy",
+           vjust = -0.5, hjust = 1.1) +
+  annotate("text", x = Inf, y = 250.4,
+           label = "V. Unhealthy",
+           vjust = -0.5, hjust = 1.1) +
+  theme_minimal() +
+  theme(legend.position = "none")
+
+nc_stacked <- stack_monitor_data(nc_data, "datetime", names(nc_recode), nc_recode)
+ggplot(nc_stacked, aes(x = monitor, y = pm25, fill = monitor)) +
+  geom_boxplot() +
+  scale_fill_manual(values = monitor_colors) +
+  labs(title = "PM2.5 Distribution at NC Site", x = "Monitor", y = "PM2.5 (µg/m³)") +
+  geom_hline( 
+    yintercept = aqi_breaks,
+    color = aqi_colors,
+    linetype = "dashed"
+  ) +
+  annotate("text", x = Inf, y = 12,
+           label = "Good",
+           vjust = -0.5, hjust = 1.1) +
+  annotate("text", x = Inf, y = 35.4,
+           label = "Moderate",
+           vjust = -0.5, hjust = 1.1) +
+  annotate("text", x = Inf, y = 55.4,
+           label = "USG",
+           vjust = -0.5, hjust = 1.1) +
+  annotate("text", x = Inf, y = 150.4,
+           label = "Unhealthy",
+           vjust = -0.5, hjust = 1.1) +
+  annotate("text", x = Inf, y = 250.4,
+           label = "V. Unhealthy",
+           vjust = -0.5, hjust = 1.1) +
+  theme_minimal() +
+  theme(legend.position = "none")
+
+lt_stacked <- stack_monitor_data(lt_data, "datetime", names(lt_recode), lt_recode)
+ggplot(lt_stacked, aes(x = monitor, y = pm25, fill = monitor)) +
+  geom_boxplot() +
+  scale_fill_manual(values = monitor_colors) +
+  labs(title = "PM2.5 Distribution at LT Site", x = "Monitor", y = "PM2.5 (µg/m³)") +
+ geom_hline( 
+    yintercept = aqi_breaks,
+    color = aqi_colors,
+    linetype = "dashed"
+  ) +
+  annotate("text", x = Inf, y = 12,
+           label = "Good",
+           vjust = -0.5, hjust = 1.1) +
+  annotate("text", x = Inf, y = 35.4,
+           label = "Moderate",
+           vjust = -0.5, hjust = 1.1) +
+  annotate("text", x = Inf, y = 55.4,
+           label = "USG",
+           vjust = -0.5, hjust = 1.1) +
+  annotate("text", x = Inf, y = 150.4,
+           label = "Unhealthy",
+           vjust = -0.5, hjust = 1.1) +
+  annotate("text", x = Inf, y = 250.4,
+           label = "V. Unhealthy",
+           vjust = -0.5, hjust = 1.1) +
+  theme_minimal() +
+  theme(legend.position = "none")
+
+```
+
+## Time Series Line Graphs of 24 hour averaged PM2.5 Concentrations by Site
+
+```{r}
+
+final_date <- as.Date("2025-02-27")
+
+# RP Site
+
+ggplot(rp_daily, aes(x = date)) +
+  geom_line(aes(y = rp_1020, color = "1020")) +
+  geom_line(aes(y = rp_1022, color = "1022")) +
+  geom_line(aes(y = rp_thermo, color = "Thermo")) +
+  geom_line(aes(y = rp_modulair_pm25, color = "Modulair")) +
+  geom_line(aes(y = rp_purpleair_cf1, color = "PurpleAir")) +
+  # add AQI lines
+  geom_hline(
+    yintercept = aqi_breaks,
+    color = aqi_colors,
+    linetype = "dashed"
+  ) +
+  annotate("text", x = final_date + days(50), y = 12,     label = "Good",         vjust = -0.5, hjust = 1.1) +
+  annotate("text", x = final_date + days(50), y = 35.4,   label = "Moderate",     vjust = -0.5, hjust = 1.1) +
+  annotate("text", x = final_date + days(50), y = 55.4,   label = "USG",          vjust = -0.5, hjust = 1.1) +
+  annotate("text", x = final_date + days(50), y = 150.4,  label = "Unhealthy",    vjust = -0.5, hjust = 1.1) +
+  annotate("text", x = final_date + days(50), y = 250.4,  label = "V. Unhealthy", vjust = -0.5, hjust = 1.1) +
+  scale_color_manual(values = monitor_colors) +
+  labs(
+    title = "PM2.5 Time Series at RP Site",
+    x = "Date",
+    y = "PM2.5 (µg/m³)",
+    color = "Monitor Type"
+  ) +
+  theme_minimal()
+
+# NC Site
+ggplot(nc_daily, aes(x = date)) +
+  geom_line(aes(y = nc_1020, color = "1020")) +
+  geom_line(aes(y = nc_modulair_pm25, color = "Modulair")) +
+  geom_line(aes(y = nc_purpleair_cf1, color = "PurpleAir")) +
+  geom_hline(
+    yintercept = aqi_breaks,
+    color = aqi_colors,
+    linetype = "dashed"
+  ) +
+  annotate("text", x = final_date + days(10), y = 12,     label = "Good",         vjust = -0.5, hjust = 1.1) +
+  annotate("text", x = final_date + days(10), y = 35.4,   label = "Moderate",     vjust = -0.5, hjust = 1.1) +
+  annotate("text", x = final_date + days(10), y = 55.4,   label = "USG",          vjust = -0.5, hjust = 1.1) +
+  annotate("text", x = final_date + days(10), y = 150.4,  label = "Unhealthy",    vjust = -0.5, hjust = 1.1) +
+  annotate("text", x = final_date + days(10), y = 250.4,  label = "V. Unhealthy", vjust = -0.5, hjust = 1.1) +
+  scale_color_manual(values = monitor_colors) +
+  labs(
+    title = "PM2.5 Time Series at RP Site",
+    x = "Date",
+    y = "PM2.5 (µg/m³)",
+    color = "Monitor Type"
+  ) +
+  theme_minimal()
+
+# LT Site
+ggplot(lt_daily, aes(x = date)) +
+  geom_line(aes(y = lt_thermo, color = "Thermo")) +
+  geom_line(aes(y = lt_modulair_pm25, color = "Modulair")) +
+  geom_line(aes(y = lt_purpleair_cf1, color = "PurpleAir")) +
+  geom_hline(
+    yintercept = aqi_breaks,
+    color = aqi_colors,
+    linetype = "dashed"
+  ) +
+  annotate("text", x = final_date + days(10), y = 12,     label = "Good",         vjust = -0.5, hjust = 1.1) +
+  annotate("text", x = final_date + days(10), y = 35.4,   label = "Moderate",     vjust = -0.5, hjust = 1.1) +
+  annotate("text", x = final_date + days(10), y = 55.4,   label = "USG",          vjust = -0.5, hjust = 1.1) +
+  annotate("text", x = final_date + days(10), y = 150.4,  label = "Unhealthy",    vjust = -0.5, hjust = 1.1) +
+  annotate("text", x = final_date + days(10), y = 250.4,  label = "V. Unhealthy", vjust = -0.5, hjust = 1.1) +
+  scale_color_manual(values = monitor_colors) +
+  labs(
+    title = "PM2.5 Time Series at RP Site",
+    x = "Date",
+    y = "PM2.5 (µg/m³)",
+    color = "Monitor Type"
+  ) +
+  theme_minimal()
+
+```
+
+## Scatterplot w/ Line of Best Fit & 1:1 by Site
+
+```{r}
+
+plot_rp <- plot_fit(rp_data, mod_col = "rp_modulair_pm25", fem_col = "rp_fem_avg", site_label = "RP")
+print(plot_rp)
+
+plot_nc <- plot_fit(nc_data, mod_col = "nc_modulair_pm25", fem_col = "nc_1020", site_label = "NC")
+print(plot_nc)
+
+plot_lt <- plot_fit(lt_data, mod_col = "lt_modulair_pm25", fem_col = "lt_thermo", site_label = "LT")
+print(plot_lt)
+
+```
+## Correlation Matrices by Variable 
+
+```{r}
+# used for examining relationships between potential modeling terms 
+
+# Select a subset of the variables you think might be relevant for the model.
+# For example, you could consider the following columns:
+# - FEM PM2.5 measurement (e.g., fem_avg)
+# - Modulair raw PM2.5 measurement (e.g., mod)
+# - Relative Humidity (rh)
+# - Temperature (t)
+# - Possibly dew point (if available, e.g., dp)
+
+# Let's assume that in your combined dataset, the column names are:
+# fem_avg, mod, rh, t (and maybe dp)
+
+# Create a subset of the combined dataset for the correlation matrix
+model_vars <- combined_data %>%
+  select(fem_avg, mod, rh, t)  # Add 'dp' if available
+
+# Calculate and visualize the correlation matrix using ggpairs
+ggpairs(model_vars,
+        lower = list(continuous = wrap("smooth", alpha = 0.3, size = 0.1)),
+        upper = list(continuous = wrap("cor", size = 4)),
+        diag = list(continuous = "barDiag")) +
+  labs(title = "Correlation Matrix of Candidate Model Variables")
+
 ```
  
-## Accuracy Metrics
+# Measures of Sensor Accuracy
 
-### Metrics by Site & AQI Category
+## Metrics by Site & AQI Category
  
 ```{r}
-# Apply accuracy metrics functions to all three datasets
+# For Loop to calculate accuracy metrics functions for each site & overall 
 
 datasets <- list(rp = rp_data, nc = nc_data, lt = lt_data)
 results <- list()
@@ -201,6 +464,8 @@ for (site in names(datasets)) {
   )
 }
 
+# bind tables, print results 
+
 overall_table <- bind_rows(lapply(names(results), function(site) {
   results[[site]]$overall %>% mutate(site = site)
 }))
@@ -212,40 +477,7 @@ for (site in names(results)) {
 }
 ```
  
-### Create Combined Dataset 
- 
-```{r}
-# Combine datasets 
-
-rp_combined <- rp_data %>%
-  rename(
-    fem_avg = rp_fem_avg,
-    mod = rp_modulair_pm25,
-    fem_aqi = rp_fem_aqi,
-    mod_aqi = rp_modulair_aqi
-  )
-
-nc_combined <- nc_data %>%
-  rename(
-    fem_avg = nc_1020,
-    mod = nc_modulair_pm25,
-    fem_aqi = nc_fem_aqi,
-    mod_aqi = nc_modulair_aqi
-  )
-
-lt_combined <- lt_data %>%
-  rename(
-    fem_avg = lt_thermo,
-    mod = lt_modulair_pm25,
-    fem_aqi = lt_fem_aqi,
-    mod_aqi = lt_modulair_aqi
-  )
-
-combined_data <- bind_rows(rp_combined, nc_combined, lt_combined)
-
-```
-
-### Calculate Overall Cccuracy Metrics 
+## Calculate Overall Cccuracy Metrics 
 
 ```{r}
 # apply accuracy metrics functions to combined dataset
@@ -253,7 +485,7 @@ combined_data <- bind_rows(rp_combined, nc_combined, lt_combined)
 combined_metrics <- calculate_all_metrics(
   data = combined_data,
   fem_col = "fem_avg",
-  mod_col = "mod",
+  mod_col = "mod_pm25",
   fem_aqi_col = "fem_aqi",
   mod_aqi_col = "mod_aqi"
 )

@@ -59,8 +59,7 @@ lt_data <- lt_data %>%
 ```{r}
 # Recode columns (& merge datasets, ignoring merge for now)
 rp_data <- rp_data %>%
-  rename(fem_avg = rp_fem_avg,
-         mod_pm25 = rp_modulair_pm25,
+  rename(mod_pm25 = rp_modulair_pm25,
          fem_aqi = rp_fem_aqi,
          mod_aqi = rp_modulair_aqi,
          mod_rh = rp_modulair_rh)  
@@ -97,10 +96,12 @@ testing_data  <- testing(data_split)
 
 ```{r}
 # Base recipe using mod and rh as predictors for fem_avg
-base_recipe <- recipe(fem_avg ~ mod_pm25 + mod_rh, data = training_data)
+base_linear_recipe <- recipe(fem_avg ~ mod_pm25, data = training_data)
+
+linear_rh_recipe <- recipe(fem_avg ~ mod_pm25 + mod_rh, data = training_data)
 
 # Quadratic recipe: add polynomial term for 'mod'
-quad_recipe <- base_recipe %>%
+quad_recipe <- base_linear_recipe %>%
   step_poly(mod_pm25, degree = 2, options = list(raw = TRUE))
 
 # Quadratic + RH interaction recipe: create interaction term between PM2.5 and Rh
@@ -128,13 +129,18 @@ quad_spec <- linear_reg() %>%
 ```
 
 
-## Workflows
+## Workflows 
 
 ```{r}
-# Workflow for Model A (baseline: linear model with mod and rh)
+# Workflow for Model "Linear" (baseline: linear model with only Modulair PM2.5)
 wf_linear <- workflow() %>%
   add_model(linear_spec) %>%
-  add_recipe(base_recipe)
+  add_recipe(base_linear_recipe)
+
+# Workflow for Model Linear RH (baseline: linear model with Modulair PM2.5 and Modulair RH)
+wf_linear_rh <- workflow() %>%
+  add_model(linear_spec) %>%
+  add_recipe(linear_rh_recipe)
 
 # Workflow for Model B (quadratic: using quad_recipe)
 wf_quad <- workflow() %>%
@@ -152,22 +158,36 @@ wf_quad_rh <- workflow() %>%
 
 ```{r}
 # Fit each workflow on the training data.
-fit_linear <- wf_linear %>% fit(data = training_data)
+fit_linear <- wf_linear %>% fit(data = training_data) # base linear model
+fit_linear_rh <- wf_linear_rh %>% fit(data = training_data) # linear model w/ rh
 fit_quad   <- wf_quad %>% fit(data = training_data)
 #fit_quad_rh <- wf_quad_rh %>% fit(data = training_data)
 
 ```
 
-## Model Evaluation 
+##  Model Prediction Runs
 
 ```{r}
-# Linear Model (PM2.5 and RH)
-
-# Generate predictions on the testing set using the linear model.
+# Generate predictions on the testing set using the base linear model.
 lm_predictions <- predict(fit_linear, new_data = testing_data) %>% 
   bind_cols(testing_data) %>%
   # Recalculate AQI categories using the predicted (corrected) PM2.5 values.
   mutate(lm_corrected_mod_aqi = aqiCategories(.pred, pollutant = "PM2.5", NAAQS = "PM2.5_2024"))
+
+# Predictions using the linear + RH model.
+lm_rh_predictions <- predict(fit_linear_rh, new_data = testing_data) %>% 
+  bind_cols(testing_data) %>%
+  # Recalculate AQI categories using the predicted (corrected) PM2.5 values.
+  mutate(lm_rh_corrected_mod_aqi = aqiCategories(.pred, pollutant = "PM2.5", NAAQS = "PM2.5_2024"))
+
+
+```
+
+
+## Model Evaluation 
+
+```{r}
+# Base Linear Model
 
 # Evaluate performance using yardstick metrics: RMSE, R², and MAE.
 performance_metrics <- lm_predictions %>%
@@ -290,5 +310,22 @@ print(plot_rp)
 
 plot_rp <- plot_fit(combined_modeling_data, mod_col = "pa_us_correction", fem_col = "fem_avg", site_label = "RP")
 print(plot_rp)
+```
+```{r}
+# Extract the underlying model object using extract_fit_parsnip()
+lm_model <- extract_fit_parsnip(final_fit_linear)$fit
+
+# Get the coefficients from the linear model
+coefs <- coef(lm_model)
+print(coefs)
+
+# Create readable equation using the correct coefficient names.
+model_equation <- paste0("Corrected PM2.5 = ",
+                         round(coefs["(Intercept)"], 2), " + ",
+                         round(coefs["mod_pm25"], 2), " * Modulair PM2.5 + ",
+                         round(coefs["mod_rh"], 2), " * Modulair rh")
+cat("Linear Model Equation:\n", model_equation, "\n")
+
+
 ```
 

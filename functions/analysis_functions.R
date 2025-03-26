@@ -13,6 +13,33 @@ library(readxl)
 library(scales)
 
 #------------------------------------------------------------------------------
+# Function: averaging_threshold
+# Description: Helper function to calculate the mean with a 75% data completion threshold.
+# x: a numeric vector.
+# threshold: the fraction of expected observations required (default 0.75).
+# expected: the expected number of observations in a full day (default 24).
+#------------------------------------------------------------------------------
+averaging_threshold <- function(x, threshold = 0.75, expected = 24) {
+  if(sum(!is.na(x)) >= threshold * expected) {
+    mean(x, na.rm = TRUE)
+  } else {
+    NA_real_
+  }
+}
+#------------------------------------------------------------------------------
+# Function: daily_averages
+# Description: Function to calculate daily (24-hour) averages for a dataset,
+# applying the 75% data completion threshold to each numeric column.
+#------------------------------------------------------------------------------
+daily_averages <- function(data, datetime_col = "datetime") {
+  data %>%
+    mutate(date = as_date(.data[[datetime_col]])) %>%
+    group_by(date) %>%
+    summarise(across(where(is.numeric), ~ custom_mean(.x, threshold = 0.75, expected = 24)),
+              siteid = first(siteid),
+              .groups = "drop")
+}
+#------------------------------------------------------------------------------
 # Function: descriptive_stats
 # Description: Generate a summary table of descriptive statistics (mean, SD, min, max)
 #              for every numeric column in a dataset.
