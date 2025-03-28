@@ -35,9 +35,66 @@ daily_averages <- function(data, datetime_col = "datetime") {
   data %>%
     mutate(date = as_date(.data[[datetime_col]])) %>%
     group_by(date) %>%
-    summarise(across(where(is.numeric), ~ custom_mean(.x, threshold = 0.75, expected = 24)),
+    summarise(across(where(is.numeric), ~ averaging_threshold(.x, threshold = 0.75, expected = 24)),
               siteid = first(siteid),
               .groups = "drop")
+}
+
+#------------------------------------------------------------------------------
+# Function: summarize_counts
+# Description: helper function to summarize each site's data, counts and percentages
+# by AQI category 
+#------------------------------------------------------------------------------
+summarize_counts <- function(data,
+                           siteid_col = "siteid",
+                           fem_col,
+                           mod_col,
+                           aqi_col) {
+  
+  # Number of total rows
+  total_obs <- nrow(data)
+  
+  # Number of rows where both FEM and Modulair PM2.5 measurements are present
+  complete_obs <- data %>%
+    filter(!is.na(.data[[fem_col]]) & !is.na(.data[[mod_col]])) %>%
+    nrow()
+  
+  # Tally each FEM AQI category
+  # (1=Good, 2=Moderate, 3=USG, 4=Unhealthy, 5=Very Unhealthy, 6=Hazardous)
+  # If your actual numeric codes differ, adjust the case_when below.
+  aqi_summary <- data %>%
+    filter(!is.na(.data[[aqi_col]])) %>%
+    group_by(.data[[aqi_col]]) %>%
+    summarise(count = n(), .groups = "drop") %>%
+    mutate(percent = 100 * count / sum(count)) %>%
+    mutate(category_name = case_when(
+      .data[[aqi_col]] == 1 ~ "Good",
+      .data[[aqi_col]] == 2 ~ "Moderate",
+      .data[[aqi_col]] == 3 ~ "USG",          # Unhealthy for Sensitive Groups
+      .data[[aqi_col]] == 4 ~ "Unhealthy",
+      .data[[aqi_col]] == 5 ~ "V.Unhealthy",
+      .data[[aqi_col]] == 6 ~ "Hazardous",
+      TRUE                 ~ "Unknown"
+    ))
+  
+  # Pivot to wide so each AQI category has columns like Good_count, Good_percent, etc.
+  aqi_wide <- aqi_summary %>%
+    select(category_name, count, percent) %>%
+    pivot_wider(
+      names_from = category_name,
+      values_from = c(count, percent),
+      names_glue = "{category_name}_{.value}"
+    )
+  
+  # Build a single-row tibble for this site
+  final <- tibble(
+    site = unique(data[[siteid_col]]),
+    total_obs = total_obs,
+    complete_obs = complete_obs
+  ) %>%
+    bind_cols(aqi_wide)
+  
+  final
 }
 #------------------------------------------------------------------------------
 # Function: descriptive_stats
@@ -73,7 +130,6 @@ stack_monitor_data <- function(data, datetime_col, monitor_cols, recode_map) {
     pivot_longer(-all_of(datetime_col), names_to = "monitor", values_to = "pm25") %>%
     mutate(monitor = recode(monitor, !!!recode_map))
 }
-
 #------------------------------------------------------------------------------
 # Function: plot_fit
 # Description: Plot the relationship between the Modulair measurement and the FEM measurement,
@@ -110,7 +166,7 @@ plot_fit <- function(data, mod_col, fem_col, site_label) {
 #
 # EPA recommendations treat the FEM measurement as the gold standard.
 #
-# Returns a tibble with R-squared, MAE, RMSE, NRMSE (as a percentage), slope, intercept,
+# Returns: a tibble with R-squared, MAE, RMSE, NRMSE (as a percentage), slope, intercept,
 # and Average_Error (the mean of residuals, indicating directional bias).
 #------------------------------------------------------------------------------
 calculate_metrics <- function(true_values, predicted_values) {
@@ -188,4 +244,74 @@ calculate_all_metrics <- function(data, fem_col, mod_col, fem_aqi_col, mod_aqi_c
     )
   
   return(list(overall = overall, stratified = stratified))
+}
+#------------------------------------------------------------------------------
+# Function: fit_evaluate_wf
+# Description: 
+#   Fits a tidymodels workflow on the training data, makes predictions on the testing data,
+#   calculates residuals, computes predicted AQI categories (using aqiCategories()), and 
+#   calculates performance metrics (RMSE, R-squared, MAE) using yardstick functions.
+#
+# Arguments:
+#   wf       : A tidymodels workflow object (containing both the model and recipe).
+#   wf_name  : A character string identifier for the workflow/model (for labeling outputs).
+#   train_data: The training dataset.
+#   test_data : The testing dataset.
+#
+# Returns:
+#   A list containing:
+#     - fit: The fitted workflow model.
+#     - predictions: A tibble with the testing data augmented with predictions, residuals, 
+#                    the workflow name, and predicted AQI category.
+#     - metrics: A tibble of performance metrics (RMSE, R-squared, MAE) computed using yardstick.
+#------------------------------------------------------------------------------
+fit_evaluate_wf <- function(wf, wf_name, train_data, test_data) {
+  # Fit the workflow on the training data
+  fit_mod <- wf %>% fit(data = train_data)
+  
+  # Generate predictions on the testing data and compute residuals.
+  # We also add a column for the model name and predicted AQI category.
+  preds <- predict(fit_mod, new_data = test_data) %>% 
+    bind_cols(test_data) %>% 
+    mutate(
+      residual = fem_avg - .pred,   # residual = observed minus predicted
+      model = wf_name,
+      predicted_aqi = aqiCategories(.pred, pollutant = "PM2.5", NAAQS = "PM2.5_2024")
+    )
+  
+  # Calculate performance metrics using yardstick functions
+  metrics_tbl <- preds %>%
+    metrics(truth = fem_avg, estimate = .pred) %>%
+    mutate(model = wf_name)
+  
+  # Return a list with the fitted model, predictions, and metrics
+  list(
+    fit = fit_mod,
+    predictions = preds,
+    metrics = metrics_tbl
+  )
+}
+#------------------------------------------------------------------------------
+# Function: append_predictions
+# Description:
+#   Given a fitted workflow (wf) and a dataset, this function generates predictions
+#   and appends them as a new column to the dataset. The new column is named using
+#   the string provided in new_col_name.
+#
+# Arguments:
+#   wf          : A fitted tidymodels workflow object.
+#   data        : A data frame on which to make predictions.
+#   new_col_name: A string specifying the name for the new prediction column.
+#
+# Returns:
+#   The input data frame with an added column containing the predicted values.
+#------------------------------------------------------------------------------
+append_predictions <- function(wf, data, new_col_name) {
+  # Generate predictions using the fitted workflow on the provided data.
+  preds <- predict(wf, new_data = data) %>% 
+    pull(.pred)
+  
+  # Append the predictions as a new column with the specified name.
+  data %>% 
+    mutate(!!new_col_name := preds)
 }

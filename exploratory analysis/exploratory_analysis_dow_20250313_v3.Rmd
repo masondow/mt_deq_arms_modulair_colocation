@@ -24,7 +24,7 @@ library(readxl)
 library(lubridate)
 library(scales)
 library(knitr)
-library(AirMonitor)  # for aqiCategories()
+library(AirMonitor)  
 library(here)
 library(GGally)
 
@@ -56,14 +56,11 @@ rp_daily <- daily_averages(rp_data)
 nc_daily <- daily_averages(nc_data)
 lt_daily <- daily_averages(lt_data)
 
-# Look at the first few rows of the RP daily averages:
 head(rp_daily)
-
-
 ```
 
 
-## Color Code by Monitor Setup
+## Color Code and Column Name Mapping by Monitor
 
 ```{r}
 # Color scheme for graphing by monitor types
@@ -76,6 +73,7 @@ monitor_colors <- c("1020" = "#56B4E9",
                     "PurpleAir" = "purple")
 
 # Define recoding maps for each site to convert raw column names to monitor labels
+
 rp_recode <- c("rp_1020" = "1020",
                "rp_1022" = "1022",
                "rp_thermo" = "Thermo",
@@ -192,7 +190,7 @@ lt_combined <- lt_data %>%
 combined_data <- bind_rows(rp_combined, nc_combined, lt_combined)
 
 # Select only the columns that follow our standardized naming scheme (plus datetime and siteid)
-combined_data <- combined_modeling_data %>%
+combined_data <- combined_data %>%
   select(siteid, datetime, fem_avg, mod_pm25, mod_rh, mod_tempc, fem_aqi, mod_aqi)
 
 
@@ -203,6 +201,47 @@ head(combined_data)
 
 
 # Calculate Descriptive Statistics
+
+```{r}
+# Summarize observations by site, AQI Category 
+
+# uses summarize_counts function from function file 
+# adjust fem_col, mod_col, aqi_col as appropriate for each dataset.
+
+# For RP site:
+rp_summary <- summarize_counts(
+  data     = rp_data,
+  fem_col  = "rp_fem_avg",       # or rp_fem_weighted_avg if that's your main reference
+  mod_col  = "rp_modulair_pm25",
+  aqi_col  = "rp_fem_aqi"
+)
+
+# For NC site 
+nc_summary <- summarize_counts(
+  data     = nc_data,
+  fem_col  = "nc_1020",
+  mod_col  = "nc_modulair_pm25",
+  aqi_col  = "nc_fem_aqi"
+)
+
+# For LT site:
+lt_summary <- summarize_counts(
+  data     = lt_data,
+  fem_col  = "lt_thermo",
+  mod_col  = "lt_modulair_pm25",
+  aqi_col  = "lt_fem_aqi"
+)
+
+# Combine site-level summaries into one table, print w/ kable
+combined_summaries <- bind_rows(rp_summary, nc_summary, lt_summary)
+
+kable(
+  combined_summaries,
+  caption = "Summary of Observations and AQI Category Counts/Percentages by Site"
+)
+
+```
+
 
 ```{r}
 # build out descriptive statistics tables by site
@@ -409,34 +448,34 @@ plot_lt <- plot_fit(lt_data, mod_col = "lt_modulair_pm25", fem_col = "lt_thermo"
 print(plot_lt)
 
 ```
-## Correlation Matrices by Variable 
+## Correlation Matrix by Modeling Variable 
 
 ```{r}
-# used for examining relationships between potential modeling terms 
+# Create correlation matrix with all variables to be potentially included in modeling using combined dataset
 
-# Select a subset of the variables you think might be relevant for the model.
-# For example, you could consider the following columns:
-# - FEM PM2.5 measurement (e.g., fem_avg)
-# - Modulair raw PM2.5 measurement (e.g., mod)
-# - Relative Humidity (rh)
-# - Temperature (t)
-# - Possibly dew point (if available, e.g., dp)
+# - fem_avg: FEM PM2.5 measurement (true value)
+# - mod_pm25: Modulair PM2.5 measurement (raw)
+# - mod_rh: Modulair relative humidity
+# - mod_tempc: Modulair ambient temperature (°C)
 
-# Let's assume that in your combined dataset, the column names are:
-# fem_avg, mod, rh, t (and maybe dp)
-
-# Create a subset of the combined dataset for the correlation matrix
 model_vars <- combined_data %>%
-  select(fem_avg, mod, rh, t)  # Add 'dp' if available
+  select(fem_avg, mod_pm25, mod_rh, mod_tempc)
 
 # Calculate and visualize the correlation matrix using ggpairs
 ggpairs(model_vars,
         lower = list(continuous = wrap("smooth", alpha = 0.3, size = 0.1)),
         upper = list(continuous = wrap("cor", size = 4)),
         diag = list(continuous = "barDiag")) +
-  labs(title = "Correlation Matrix of Candidate Model Variables")
-
+  labs(title = "Correlation Matrix of Candidate Modeling Variables")
 ```
+
+### Matrix Interpretation:
+
+- Moderate correlation between reference and raw sensor PM2.5 (r ∼ 0.77) suggests the sensor is “in the ballpark” but needs a bias correction.
+
+- Minimal linear correlation between PM2.5 and RH/temperature does not rule out the possibility that adding an RH or temperature term can significantly improve your final model—particularly if the sensor’s error depends on meteorology.
+
+- Strong collinearity between temperature and humidity (r ~ −0.66) means you should be mindful about including both in a single linear regression. In some cases, one meteorological term (often RH) captures most of the sensor’s bias.
  
 # Measures of Sensor Accuracy
 

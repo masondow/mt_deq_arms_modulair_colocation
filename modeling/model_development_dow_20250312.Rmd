@@ -7,7 +7,6 @@ output: html_document
 
 # Introduction
 
-
 ```{r setup, warning=FALSE, include=FALSE, echo=FALSE}
 library(tidyverse)
 library(tidymodels)
@@ -15,54 +14,44 @@ library(readxl)
 library(lubridate)
 library(AirMonitor)
 library(here)
+library(purrr)
+library(knitr)
 
 source(here("functions", "analysis_functions.R"))
 
 theme_set(theme_minimal())
 
-# For tidymodels, seed by date for reproducibility.
+# For tidymodels, seed by date for reproducibility
 
 set.seed(20250314)
 ```
 
-# Introduction
-
 # Load Data 
 
 ```{r}
-# Load data from data folder 
-lt_data <- read_excel("../data/LT_data.xlsx")
-nc_data <- read_excel("../data/NC_data.xlsx")
-rp_data <- read_excel("../data/RP_data.xlsx")
+# Load transformed hourly and daily data from R environment (generated in EDA Preprocessing) 
+
+lt_data <- lt_data
+nc_data <- nc_data
+rp_data <- rp_data
+
+lt_daily <- lt_daily
+nc_daily <- nc_daily
+rp_daily <- rp_daily
+
 ```
 
 # Transform Data
 
 ```{r}
-# Add AQI categories using AirMonitor's aqiCategories() function.
-rp_data <- rp_data %>%
-  mutate(rp_modulair_aqi = aqiCategories(rp_modulair_pm25, pollutant = "PM2.5", NAAQS = "PM2.5_2024"),
-         rp_purpleair_aqi = aqiCategories(rp_purpleair_cf1, pollutant = "PM2.5", NAAQS = "PM2.5_2024"),
-         rp_fem_aqi = aqiCategories(rp_fem_avg, pollutant = "PM2.5", NAAQS = "PM2.5_2024"))
-
-nc_data <- nc_data %>%
-  mutate(nc_modulair_aqi = aqiCategories(nc_modulair_pm25, pollutant = "PM2.5", NAAQS = "PM2.5_2024"),
-         nc_purpleair_aqi = aqiCategories(nc_purpleair_cf1, pollutant = "PM2.5", NAAQS = "PM2.5_2024"),
-         nc_fem_aqi = aqiCategories(nc_1020, pollutant = "PM2.5", NAAQS = "PM2.5_2024"))
-
-lt_data <- lt_data %>%
-  mutate(lt_modulair_aqi = aqiCategories(lt_modulair_pm25, pollutant = "PM2.5", NAAQS = "PM2.5_2024"),
-         lt_purpleair_aqi = aqiCategories(lt_purpleair_cf1, pollutant = "PM2.5", NAAQS = "PM2.5_2024"),
-         lt_fem_aqi = aqiCategories(lt_thermo, pollutant = "PM2.5", NAAQS = "PM2.5_2024"))
-```
-
-```{r}
 # Recode columns (& merge datasets, ignoring merge for now)
-rp_data <- rp_data %>%
-  rename(mod_pm25 = rp_modulair_pm25,
-         fem_aqi = rp_fem_aqi,
-         mod_aqi = rp_modulair_aqi,
-         mod_rh = rp_modulair_rh)  
+rp_modeling_data <- rp_data %>%
+ rename(fem_avg = rp_fem_avg,
+        mod_pm25 = rp_modulair_pm25,
+        fem_aqi = rp_fem_aqi,
+        mod_aqi = rp_modulair_aqi,
+        mod_rh = rp_modulair_rh,
+        mod_tempc = rp_modulair_tempc)
 
 # #nc_combined <- nc_data %>%
 #   rename(fem_avg = nc_1020,
@@ -78,11 +67,11 @@ rp_data <- rp_data %>%
 #          mod_aqi = lt_modulair_aqi,
 #          mod_rh = lt_modulair_rh)
 
-combined_modeling_data <- rp_data # only RP for now
+combined_modeling_data <- rp_modeling_data # only RP for now, other datasets not fit for model training/testing
 
 ```
 
-# Model Development and Testing via Tidymodels 
+# Model Development and Training via Tidymodels 
 
 ## Split Data into Training/Testing
 
@@ -95,125 +84,231 @@ testing_data  <- testing(data_split)
 ## Recipes
 
 ```{r}
-# Base recipe using mod and rh as predictors for fem_avg
+# Recipe using only modulair PM2.5 (base recipe)
 base_linear_recipe <- recipe(fem_avg ~ mod_pm25, data = training_data)
 
+# Recipe with additive RH term
 linear_rh_recipe <- recipe(fem_avg ~ mod_pm25 + mod_rh, data = training_data)
 
-# Quadratic recipe: add polynomial term for 'mod'
-quad_recipe <- base_linear_recipe %>%
+# Recipe with modulair PM2.5, RH, and temperature
+linear_temp_rh_recipe <- recipe(fem_avg ~ mod_pm25 + mod_rh + mod_tempc, data = training_data)
+
+# Recipe with interaction between modulair PM2.5 and RH
+interaction_recipe <- recipe(fem_avg ~ mod_pm25 + mod_rh, data = training_data) %>%
+  step_interact(terms = ~ mod_pm25:mod_rh)
+
+# Recipe with full interactions among modulair PM2.5, RH, and temperature
+full_interaction_recipe <- recipe(fem_avg ~ mod_pm25 + mod_rh + mod_tempc, data = training_data) %>%
+  step_interact(terms = ~ mod_pm25:mod_rh + mod_pm25:mod_tempc + mod_rh:mod_tempc)
+
+# Recipe adding a second-degree (quadratic) term for modulair PM2.5
+quad_recipe <- recipe(fem_avg ~ mod_pm25, data = training_data) %>%
   step_poly(mod_pm25, degree = 2, options = list(raw = TRUE))
-
-# Quadratic + RH interaction recipe: create interaction term between PM2.5 and Rh
-quad_rh_recipe <- quad_recipe %>%
-  step_interact(terms = ~ mod_pm25 * mod_rh - mod_pm25 - mod_rh)
-
-# more later
 
 ```
 
 ## Model Specifications
 
 ```{r}
-# Linear regression model (Model A baseline)
+# Not necessary for more than single spec as all specifications are linear, but can keep in code for future use/customization for other potential non-linear pollutant modeling
+
+# Base linear regression model (using only mod_pm25)
 linear_spec <- linear_reg() %>% 
   set_engine("lm")
 
-# For quadratic model (Model B), the recipe above includes a polynomial term.
-quad_spec <- linear_reg() %>%
+# Linear model with modulair PM2.5 and RH
+linear_rh_spec <- linear_reg() %>% 
   set_engine("lm")
 
-# We can use the same model specification for the more complex recipes.
-# Later, we might explore non-linear models via nls() or gam(), but for now we start with linear regression.
+# Linear model with modulair PM2.5, RH, and temperature
+linear_temp_rh_spec <- linear_reg() %>% 
+  set_engine("lm")
+
+# Model for interaction (will be paired with the interaction_recipe)
+interaction_spec <- linear_reg() %>% 
+  set_engine("lm")
+
+# Quadratic model specification (to be used with quad_recipe)
+quad_spec <- linear_reg() %>% 
+  set_engine("lm")
 
 ```
-
 
 ## Workflows 
 
 ```{r}
-# Workflow for Model "Linear" (baseline: linear model with only Modulair PM2.5)
+# Workflow for base linear model
 wf_linear <- workflow() %>%
   add_model(linear_spec) %>%
   add_recipe(base_linear_recipe)
 
-# Workflow for Model Linear RH (baseline: linear model with Modulair PM2.5 and Modulair RH)
+# Workflow for "Linear + RH" model
 wf_linear_rh <- workflow() %>%
-  add_model(linear_spec) %>%
+  add_model(linear_rh_spec) %>%
   add_recipe(linear_rh_recipe)
 
-# Workflow for Model B (quadratic: using quad_recipe)
+# Workflow for "Linear + RH + Temperature" model
+wf_linear_temp_rh <- workflow() %>%
+  add_model(linear_temp_rh_spec) %>%
+  add_recipe(linear_temp_rh_recipe)
+
+# Workflow for interaction model (mod_pm25 and mod_rh interaction)
+wf_interaction <- workflow() %>%
+  add_model(interaction_spec) %>%
+  add_recipe(interaction_recipe)
+
+# Workflow for full interaction model 
+wf_full_interaction <- workflow() %>%
+  add_model(interaction_spec) %>%
+  add_recipe(full_interaction_recipe)
+
+# Workflow for quadratic model
 wf_quad <- workflow() %>%
   add_model(quad_spec) %>%
   add_recipe(quad_recipe)
-
-# Workflow for Model D/E (quadratic + RH interaction)
-wf_quad_rh <- workflow() %>%
-  add_model(quad_spec) %>%
-  add_recipe(quad_rh_recipe)
 ```
 
+```{r}
+# Define WF list:
+
+wf_list <- list(
+  "Base Linear"           = wf_linear,
+  "Linear + RH"           = wf_linear_rh,
+  "Linear + RH + Temp"    = wf_linear_temp_rh,
+  "Interaction"           = wf_interaction,
+  "Full Interaction"      = wf_full_interaction,
+  "Quadratic"             = wf_quad
+)
+```
 
 ## Model Training
 
 ```{r}
-# Fit each workflow on the training data.
-fit_linear <- wf_linear %>% fit(data = training_data) # base linear model
-fit_linear_rh <- wf_linear_rh %>% fit(data = training_data) # linear model w/ rh
-fit_quad   <- wf_quad %>% fit(data = training_data)
-#fit_quad_rh <- wf_quad_rh %>% fit(data = training_data)
+# Model Fitting, Predictions and Metrics by Workflow 
+# For Loop using fit_evaluate_wf function from function file 
+# Loops over the workflows to fit models, predict on the test set, and collect metrics.
 
+modeling_results <- map2(wf_list, names(wf_list), ~ fit_evaluate_wf(.x, .y, training_data, testing_data))
+
+# Combine performance metrics from all models into a single table
+all_modeling_metrics <- map_dfr(modeling_results, "metrics")
 ```
 
-##  Model Prediction Runs
+## Append Predictions to Testing Dataset
 
 ```{r}
-# Generate predictions on the testing set using the base linear model.
-lm_predictions <- predict(fit_linear, new_data = testing_data) %>% 
-  bind_cols(testing_data) %>%
-  # Recalculate AQI categories using the predicted (corrected) PM2.5 values.
-  mutate(lm_corrected_mod_aqi = aqiCategories(.pred, pollutant = "PM2.5", NAAQS = "PM2.5_2024"))
+# Append modeled predictions to the testing dataset
+# Update the testing set with predictions from each model w/ new column for each model's prediction
 
-# Predictions using the linear + RH model.
-lm_rh_predictions <- predict(fit_linear_rh, new_data = testing_data) %>% 
-  bind_cols(testing_data) %>%
-  # Recalculate AQI categories using the predicted (corrected) PM2.5 values.
-  mutate(lm_rh_corrected_mod_aqi = aqiCategories(.pred, pollutant = "PM2.5", NAAQS = "PM2.5_2024"))
-
-
+# For each workflow, add a new column to the testing_data
+testing_data_updated <- testing_data
+for(model_name in names(wf_list)) {
+  # Fit the workflow on the training data first
+  fit_mod <- wf_list[[model_name]] %>% fit(data = training_data)
+  # Generate predictions and add as a new column named "pred_<model_name>"
+  col_name <- paste0("pred_", gsub(" ", "_", tolower(model_name)))
+  testing_data_updated <- append_predictions(fit_mod, testing_data_updated, col_name)
+}
 ```
 
-
-## Model Evaluation 
+## Add Corresponding Predicted AQI Categories to Testing Dataset
 
 ```{r}
-# Base Linear Model
-
-# Evaluate performance using yardstick metrics: RMSE, R², and MAE.
-performance_metrics <- lm_predictions %>%
-  metrics(truth = fem_avg, estimate = .pred) %>%
-  filter(.metric %in% c("rmse", "rsq", "mae"))
-
-performance_metrics %>% 
-  knitr::kable(caption = "Performance Metrics (80/20 Split) for Linear Model")
-
-# Calculate overall and stratified accuracy metrics using our custom function.
-testing_accuracy <- calculate_all_metrics(
-  data = lm_predictions,
-  fem_col = "fem_avg",
-  mod_col = ".pred",
-  fem_aqi_col = "fem_aqi",
-  mod_aqi_col = "lm_corrected_mod_aqi"
-)
-
-# Display overall accuracy metrics for the testing set.
-testing_accuracy$overall %>% 
-  knitr::kable(caption = "Overall LM Correction Accuracy Metrics on Testing Dataset")
-
-# Display stratified accuracy metrics by AQI category for the testing set.
-knitr::kable(testing_accuracy$stratified, caption = "Stratified LM Correction Accuracy Metrics by AQI Category - Testing Dataset")
-
+# Build predicted AQI category columns for each prediction column
+testing_data_updated <- testing_data_updated %>%
+  mutate(across(all_of(prediction_cols), 
+                ~ aqiCategories(.x, pollutant = "PM2.5", NAAQS = "PM2.5_2024"),
+                .names = "{.col}_aqi"))
 ```
+
+## Define Predictions Columns & Corresponding AQI Category Columns
+
+```{r}
+# Define the names of the prediction columns in the updated testing data
+prediction_cols <- c("pred_base_linear", 
+                     "pred_linear_+_rh", 
+                     "pred_linear_+_rh_+_temp", 
+                     "pred_interaction",
+                     "pred_full_interaction",
+                     "pred_quadratic")
+
+# Define the corresponding predicted AQI column names
+pred_aqi_cols <- paste0(prediction_cols, "_aqi")
+```
+
+# Model Evaluations
+
+## Key Model Performance Metrics
+
+```{r}
+# Comparison table of performance metrics (rounded + formatted)
+
+all_modeling_metrics %>%
+  mutate(across(where(is.numeric), ~ round(.x, 2))) %>%
+  kable(caption = "Key Accuracy Metrics by Model (Testing Data")
+```
+
+## Residuals Plots 
+
+```{r}
+# Generate residual plots for each prediction column
+residual_plots <- map(prediction_cols, function(pred_col) {
+  testing_data_updated %>%
+    mutate(residual = fem_avg - .data[[pred_col]]) %>%
+    ggplot(aes(x = .data[[pred_col]], y = residual)) +
+      geom_point(alpha = 0.5) +
+      geom_hline(yintercept = 0, linetype = "dashed", color = "red") +
+      labs(title = paste("Residual Plot for", pred_col),
+           x = paste("Predicted FEM PM2.5 (", pred_col, ")"),
+           y = "Residual (FEM - Predicted)") +
+      theme_minimal()
+})
+
+# Name each plot for easier reference
+names(residual_plots) <- prediction_cols
+
+# Print each residual plot
+walk(residual_plots, print)
+```
+
+## Calculate Stratified Metrics
+
+```{r}
+# Loop over each pair of prediction and predicted AQI columns and calculate metrics using your calculate_all_metrics function
+metrics_by_model <- map2(prediction_cols, pred_aqi_cols, function(pred_col, pred_aqi_col) {
+  calculate_all_metrics(
+    data = testing_data_updated, 
+    fem_col = "fem_avg", 
+    mod_col = pred_col, 
+    fem_aqi_col = "fem_aqi", 
+    mod_aqi_col = pred_aqi_col
+  )
+})
+
+# Extract overall metrics into a single tibble and add a column for the model name
+overall_metrics <- map_dfr(metrics_by_model, "overall") %>%
+  mutate(model = prediction_cols)
+
+# Extract stratified (by FEM AQI category) metrics into a single tibble
+stratified_metrics <- map2_dfr(metrics_by_model, prediction_cols, function(x, model_name) {
+  x$stratified %>% mutate(model = model_name)
+})
+
+# Print the overall performance metrics table 
+overall_metrics %>% 
+  knitr::kable(caption = "Overall Performance Metrics by Model")
+
+# Print the stratified performance metrics table 
+stratified_metrics %>% 
+  knitr::kable(caption = "Performance Metrics Stratified by AQI Category and Model")
+```
+
+
+# Final Model
+
+## Selection Process (**YOU ARE HERE**)
+
+## Model Fitting and Predictions
 
 ### Applying Linear Model to Entire RP Dataset
 
@@ -223,12 +318,12 @@ final_fit_linear <- wf_linear %>%
   fit(data = combined_modeling_data)
 
 # Generate predictions on the entire dataset and recalculate the AQI categories using the corrected values.
-lm_predictions <- predict(final_fit_linear, new_data = combined_modeling_data) %>% 
+lm_final_predictions <- predict(final_fit_linear, new_data = combined_modeling_data) %>% 
   bind_cols(combined_modeling_data) %>%
   mutate(corrected_mod_aqi = aqiCategories(.pred, pollutant = "PM2.5", NAAQS = "PM2.5_2024"))
 
 # Evaluate performance using yardstick metrics (RMSE, R², and MAE).
-final_performance_metrics <- lm_predictions %>%
+final_performance_metrics <- lm_final_predictions %>%
   metrics(truth = fem_avg, estimate = .pred) %>%
   filter(.metric %in% c("rmse", "rsq", "mae"))
 
@@ -250,11 +345,31 @@ final_accuracy_metrics$overall %>%
 
 # Display the stratified accuracy metrics by AQI category.
 knitr::kable(final_accuracy_metrics$stratified, caption = "Stratified Accuracy Metrics by AQI Category - Entire Dataset")
-
 ```
 
+## Accuracy
 
-## Assessing PurpleAir US-wide correction equation for Modulair data:
+## Coefficients and Equation
+
+```{r}
+# Extract the underlying model object using extract_fit_parsnip()
+lm_model <- extract_fit_parsnip(final_fit_linear)$fit
+
+# Get the coefficients from the linear model
+coefs <- coef(lm_model)
+print(coefs)
+
+# Create readable equation using the correct coefficient names
+model_equation <- paste0("Corrected PM2.5 = ",
+                         round(coefs["(Intercept)"], 2), " + ",
+                         round(coefs["mod_pm25"], 2), " * Modulair PM2.5 + ",
+                         round(coefs["mod_rh"], 2), " * Modulair rh")
+cat("Linear Model Equation:\n", model_equation, "\n")
+```
+
+## Comparison to V1 PurpleAir U.S - wide correction equation 
+
+### Assessing PurpleAir US-wide correction equation for Modulair data:
 
 ```{r}
 # Apply the U.S. correction equation to the Modulair measurements
@@ -293,39 +408,3 @@ corrected_metrics$overall %>%
 knitr::kable(corrected_metrics$stratified, caption = "Stratified Accuracy Metrics by AQI Category (Corrected Data)")
 
 ```
-
-## Data Visulizations for Corrected Modulair PM2.5 Data
-
-```{r}
-
-# LM
-
-plot_rp <- plot_fit(lm_predictions, mod_col = ".pred", fem_col = "fem_avg", site_label = "RP")
-print(plot_rp)
-```
-
-```{r}
-
-# PA US-Wide Correction Equation
-
-plot_rp <- plot_fit(combined_modeling_data, mod_col = "pa_us_correction", fem_col = "fem_avg", site_label = "RP")
-print(plot_rp)
-```
-```{r}
-# Extract the underlying model object using extract_fit_parsnip()
-lm_model <- extract_fit_parsnip(final_fit_linear)$fit
-
-# Get the coefficients from the linear model
-coefs <- coef(lm_model)
-print(coefs)
-
-# Create readable equation using the correct coefficient names.
-model_equation <- paste0("Corrected PM2.5 = ",
-                         round(coefs["(Intercept)"], 2), " + ",
-                         round(coefs["mod_pm25"], 2), " * Modulair PM2.5 + ",
-                         round(coefs["mod_rh"], 2), " * Modulair rh")
-cat("Linear Model Equation:\n", model_equation, "\n")
-
-
-```
-
