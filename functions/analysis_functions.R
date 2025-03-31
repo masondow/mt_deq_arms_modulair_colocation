@@ -8,9 +8,15 @@
 #
 # Required libraries:
 library(tidyverse)
-library(lubridate)
+library(tidymodels)
 library(readxl)
-library(scales)
+library(lubridate)
+library(AirMonitor)
+library(here)
+library(purrr)
+library(knitr)
+library(patchwork)
+library(GGally)
 
 #------------------------------------------------------------------------------
 # Function: averaging_threshold
@@ -314,4 +320,36 @@ append_predictions <- function(wf, data, new_col_name) {
   # Append the predictions as a new column with the specified name.
   data %>% 
     mutate(!!new_col_name := preds)
+}
+#------------------------------------------------------------------------------
+# Function: plot_model_fit
+# Description: Plots the relationship between a model's predicted FEM PM2.5 values and the actual
+#              FEM PM2.5 measurements from the provided test dataset. It adds a best-fit line,
+#              a 1:1 reference line, and annotates the plot with the Pearson correlation coefficient.
+#
+# Arguments:
+# - test_data: A tibble containing the test dataset.
+# - pred_col: A string specifying the name of the prediction column (predicted FEM PM2.5).
+# - fem_col: A string specifying the name of the FEM PM2.5 column (default is "fem_avg").
+#
+# Returns:
+# - A ggplot object.
+#------------------------------------------------------------------------------
+plot_model_fit <- function(test_data, pred_col, fem_col = "fem_avg") {
+  # Calculate Pearson correlation between predicted and FEM values
+  correlation <- cor(test_data[[pred_col]], test_data[[fem_col]], 
+                     use = "complete.obs", method = "pearson")
+  
+  # Create the plot using tidy evaluation to reference the prediction column
+  ggplot(test_data, aes(x = .data[[pred_col]], y = .data[[fem_col]])) +
+    geom_point(alpha = 0.5) +
+    geom_smooth(method = "lm", se = FALSE, color = "blue") +
+    geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "red") +
+    labs(title = paste("Model:", pred_col),
+         x = "Predicted FEM PM2.5 (µg/m³)",
+         y = "FEM PM2.5 (µg/m³)") +
+    theme_minimal() +
+    annotate("text", x = Inf, y = Inf, 
+             label = paste("r =", round(correlation, 2)),
+             hjust = 1.1, vjust = 1.1, size = 5, color = "blue")
 }

@@ -1,11 +1,31 @@
 ---
-title: "Modulair PM2.5 Model Development"
+title: "MT DEQ Modulair PM2.5 Model Development"
 author: "Mason Dow"
 date: "`r Sys.Date()`"
 output: html_document
 ---
 
 # Introduction
+
+Accurate air quality measurements—especially of fine particulate matter (PM2.5)—are critical for public health, regulatory decision-making, and environmental management. Recent advancements in low‐cost sensors have enabled broader spatial and temporal coverage of air quality monitoring. However, raw sensor data often exhibit biases relative to regulatory‐grade measurements obtained from Federal Equivalent Method (FEM) or Federal Reference Method (FRM) monitors. To address these discrepancies, sensor data must be assessed and corrected to ensure they accurately reflect true ambient conditions.
+
+In this project, we focus on correcting raw PM2.5 measurements from Modulair sensors by leveraging collocated FEM data as our gold standard. Our modeling process builds on the methodology described in Barkjohn et al. (2021) for developing a nationwide PurpleAir correction factor. We evaluated several candidate models—including base linear regressions, models with additive relative humidity (RH) and temperature terms, interaction models, and polynomial models—to identify the best approach for reducing bias and error across the dataset.
+
+Following a comprehensive exploratory data analysis (EDA) and detailed performance metric evaluations (e.g., R², MAE, RMSE, and AQI match frequency), we selected the **Linear + RH** model as our final correction model. This model demonstrated substantial improvements over the uncorrected Modulair data and over the EPA PurpleAir US Correction when applied to our dataset. The final model, which was fitted to the entire dataset, is given by:
+
+> **Corrected PM2.5 = 1.65 + 0.64 * Modulair PM2.5 + 0.03 * Modulair RH**
+
+This equation indicates that the raw Modulair PM2.5 readings are adjusted by scaling them down (by a factor of 0.64), with an additional modest adjustment for relative humidity (0.03 per unit RH) and a constant offset of 1.65 µg/m³. The inclusion of the RH term is essential for capturing moisture‐related effects on the sensor’s light-scattering measurements.
+
+The remainder of this document details our modeling workflow, which includes:
+- Data preparation and partitioning
+- Model training using the Tidymodels framework
+- Comparative evaluation of candidate models
+- A final side-by-side comparison of our corrected data against both the uncorrected Modulair PM2.5 data and the EPA PurpleAir US Correction applied to Modulair data
+
+By applying this final correction, we aim to enhance the reliability of low-cost sensor data for air quality monitoring and public health applications. This document represents the culmination of our modeling effort and provides a robust framework for future work in sensor calibration.
+
+# Setup
 
 ```{r setup, warning=FALSE, include=FALSE, echo=FALSE}
 library(tidyverse)
@@ -16,6 +36,8 @@ library(AirMonitor)
 library(here)
 library(purrr)
 library(knitr)
+library(patchwork)
+library(GGally)
 
 source(here("functions", "analysis_functions.R"))
 
@@ -29,22 +51,77 @@ set.seed(20250314)
 # Load Data 
 
 ```{r}
-# Load transformed hourly and daily data from R environment (generated in EDA Preprocessing) 
-
-lt_data <- lt_data
-nc_data <- nc_data
-rp_data <- rp_data
-
-lt_daily <- lt_daily
-nc_daily <- nc_daily
-rp_daily <- rp_daily
-
+# Load data from data folder 
+lt_data <- read_excel("../data/LT_data.xlsx")
+nc_data <- read_excel("../data/NC_data.xlsx")
+rp_data <- read_excel("../data/RP_data.xlsx")
 ```
 
 # Transform Data
 
+## Calculate 24 hr. Averages
+
 ```{r}
-# Recode columns (& merge datasets, ignoring merge for now)
+## Calculate 24 hr. Averages
+# uses averaging_threshold and daily_averages functions from function file
+# applies 75% (18 hr.) threshold to hourly values to calculate daily averages 
+
+# Apply the function to each dataset:
+rp_daily <- daily_averages(rp_data)
+nc_daily <- daily_averages(nc_data)
+lt_daily <- daily_averages(lt_data)
+```
+
+## Calculate Corresponding AQI Categories by site and PM2.5 parameter 
+
+```{r}
+# Hourly Data
+
+# Add AQI categories using AirMonitor's aqiCategories() function.
+rp_data <- rp_data %>%
+  mutate(rp_modulair_aqi = aqiCategories(rp_modulair_pm25, pollutant = "PM2.5", NAAQS = "PM2.5_2024"),
+         rp_purpleair_aqi = aqiCategories(rp_purpleair_cf1, pollutant = "PM2.5", NAAQS = "PM2.5_2024"),
+         rp_fem_aqi = aqiCategories(rp_fem_avg, pollutant = "PM2.5", NAAQS = "PM2.5_2024"))
+
+nc_data <- nc_data %>%
+  mutate(nc_modulair_aqi = aqiCategories(nc_modulair_pm25, pollutant = "PM2.5", NAAQS = "PM2.5_2024"),
+         nc_purpleair_aqi = aqiCategories(nc_purpleair_cf1, pollutant = "PM2.5", NAAQS = "PM2.5_2024"),
+         nc_fem_aqi = aqiCategories(nc_1020, pollutant = "PM2.5", NAAQS = "PM2.5_2024"))
+
+lt_data <- lt_data %>%
+  mutate(lt_modulair_aqi = aqiCategories(lt_modulair_pm25, pollutant = "PM2.5", NAAQS = "PM2.5_2024"),
+         lt_purpleair_aqi = aqiCategories(lt_purpleair_cf1, pollutant = "PM2.5", NAAQS = "PM2.5_2024"),
+         lt_fem_aqi = aqiCategories(lt_thermo, pollutant = "PM2.5", NAAQS = "PM2.5_2024"))
+
+
+```
+
+```{r}
+# Daily Data
+
+# Add AQI categories using AirMonitor's aqiCategories() function.
+rp_daily <- rp_daily %>%
+  mutate(rp_modulair_aqi = aqiCategories(rp_modulair_pm25, pollutant = "PM2.5", NAAQS = "PM2.5_2024"),
+         rp_purpleair_aqi = aqiCategories(rp_purpleair_cf1, pollutant = "PM2.5", NAAQS = "PM2.5_2024"),
+         rp_fem_aqi = aqiCategories(rp_fem_avg, pollutant = "PM2.5", NAAQS = "PM2.5_2024"))
+
+nc_daily <- nc_daily %>%
+  mutate(nc_modulair_aqi = aqiCategories(nc_modulair_pm25, pollutant = "PM2.5", NAAQS = "PM2.5_2024"),
+         nc_purpleair_aqi = aqiCategories(nc_purpleair_cf1, pollutant = "PM2.5", NAAQS = "PM2.5_2024"),
+         nc_fem_aqi = aqiCategories(nc_1020, pollutant = "PM2.5", NAAQS = "PM2.5_2024"))
+
+lt_daily <- lt_daily %>%
+  mutate(lt_modulair_aqi = aqiCategories(lt_modulair_pm25, pollutant = "PM2.5", NAAQS = "PM2.5_2024"),
+         lt_purpleair_aqi = aqiCategories(lt_purpleair_cf1, pollutant = "PM2.5", NAAQS = "PM2.5_2024"),
+         lt_fem_aqi = aqiCategories(lt_thermo, pollutant = "PM2.5", NAAQS = "PM2.5_2024"))
+
+
+```
+
+## Combine Data
+
+```{r}
+# Recode columns (& merge datasets, ignoring merge and using only RP dataset)
 rp_modeling_data <- rp_data %>%
  rename(fem_avg = rp_fem_avg,
         mod_pm25 = rp_modulair_pm25,
@@ -211,14 +288,14 @@ for(model_name in names(wf_list)) {
 }
 ```
 
-## Add Corresponding Predicted AQI Categories to Testing Dataset
+### Adding Predictions of EPA PurpleAir U.S-wide Correction-Equation-Applied to Modulair Data 
 
 ```{r}
-# Build predicted AQI category columns for each prediction column
+# Apply the EPA PurpleAir U.S. correction equation to the Modulair measurements, AQI
 testing_data_updated <- testing_data_updated %>%
-  mutate(across(all_of(prediction_cols), 
-                ~ aqiCategories(.x, pollutant = "PM2.5", NAAQS = "PM2.5_2024"),
-                .names = "{.col}_aqi"))
+  mutate(
+    pa_us_correction = 0.524 * mod_pm25 - 0.0862 * mod_rh + 5.75
+  )
 ```
 
 ## Define Predictions Columns & Corresponding AQI Category Columns
@@ -230,10 +307,21 @@ prediction_cols <- c("pred_base_linear",
                      "pred_linear_+_rh_+_temp", 
                      "pred_interaction",
                      "pred_full_interaction",
-                     "pred_quadratic")
+                     "pred_quadratic",
+                     "pa_us_correction")
 
 # Define the corresponding predicted AQI column names
 pred_aqi_cols <- paste0(prediction_cols, "_aqi")
+```
+
+## Add Corresponding Predicted AQI Categories to Testing Dataset
+
+```{r}
+# Build predicted AQI category columns for each prediction column
+testing_data_updated <- testing_data_updated %>%
+  mutate(across(all_of(prediction_cols), 
+                ~ aqiCategories(.x, pollutant = "PM2.5", NAAQS = "PM2.5_2024"),
+                .names = "{.col}_aqi"))
 ```
 
 # Model Evaluations
@@ -303,108 +391,255 @@ stratified_metrics %>%
   knitr::kable(caption = "Performance Metrics Stratified by AQI Category and Model")
 ```
 
+## Data Visualizations
+
+### 1:1 and Lines of Best Fit by Model
+
+```{r}
+# Generate scatterplots of Modeled vs. Actual FEM Avg. w/ 1:1 line + line of best fit (Pearson)
+# uses plot_model_fit function from function file
+
+# Loop over each prediction column and generate the plot using testing_data_updated
+plots_list <- lapply(prediction_cols, function(pred_col) {
+  plot_model_fit(test_data = testing_data_updated, pred_col = pred_col, fem_col = "fem_avg")
+})
+
+# Combine all plots in a grid 
+combined_model_fit_plots <- wrap_plots(plots_list, ncol = 2)
+combined_model_fit_plots
+```
 
 # Final Model
 
-## Selection Process (**YOU ARE HERE**)
+## Modeling Conclusions and Model Selection Rationale
 
-## Model Fitting and Predictions
+This discussion focuses on the model performance metrics and the trade-offs between model complexity and accuracy, which have guided my decision for further application.
 
-### Applying Linear Model to Entire RP Dataset
+### Key Accuracy Metrics (Testing Data)
+
+- **Base Linear Model:**  
+  - RMSE: 5.53, R²: 0.57, MAE: 3.45  
+  - This model serves as a baseline.
+
+- **Linear + RH Model:**  
+  - RMSE: 5.50, R²: 0.57, MAE: 3.42  
+  - Adding an additive relative humidity (RH) term slightly improves performance over the base linear model. The reduction in MAE and RMSE suggests that RH accounts for some of the sensor’s humidity‐related scattering issues.
+
+- **Linear + RH + Temp Model:**  
+  - RMSE: 5.52, R²: 0.57, MAE: 3.42  
+  - Incorporating an additive temperature term did not yield further improvements over the Linear + RH model.
+
+- **Interaction Models (Simple and Full):**  
+  - Although the Full Interaction model achieved a slightly lower RMSE (5.28) and higher R² (0.61), it comes with increased complexity. The additional interaction terms (e.g., between PM2.5 and RH) offer marginal gains in accuracy at the cost of interpretability and ease of deployment.
+
+- **Quadratic Model:**  
+  - RMSE: 5.47, R²: 0.58, MAE: 3.39  
+  - This model shows intermediate performance but does not clearly outperform the simpler models.
+
+### Stratified Performance by AQI Category (RP Site)
+
+- In the “Good” and “Moderate” AQI categories, MAE values are low and differences between models are modest.
+- For higher AQI categories (USG and Unhealthy), error increases as expected; however, even in these bins, the Linear + RH model performs competitively compared to more complex formulations.
+- Although complex models can potentially adjust better at the extremes, the relatively small number of observations in the highest AQI categories (e.g., only 33 points in “Unhealthy”) makes the additional complexity less attractive.
+
+### Overall Performance Comparison
+
+| Model                   | R²    | MAE   | RMSE  | Slope  | Intercept | AQI Match Frequency |
+|-------------------------|-------|-------|-------|--------|-----------|---------------------|
+| Base Linear             | 0.571 | 3.45  | 5.53  | 0.611  | 3.210     | 83.65%              |
+| **Linear + RH**         | **0.575** | **3.42**  | **5.50**  | **0.618**  | **3.150**     | **83.11%**              |
+| Linear + RH + Temp      | 0.572 | 3.42  | 5.52  | 0.619  | 3.151     | 83.38%              |
+| Interaction             | 0.565 | 3.38  | 5.60  | 0.636  | 3.061     | 83.11%              |
+| Full Interaction        | 0.608 | 3.31  | 5.28  | 0.650  | 2.917     | 83.65%              |
+| Quadratic               | 0.583 | 3.39  | 5.47  | 0.642  | 2.980     | 83.29%              |
+
+### Synthesis and Decision
+
+While the Full Interaction model slightly outperforms on some metrics, I have chosen the **Linear + RH model** for the following reasons:
+
+1. **Simplicity and Interpretability:**  
+   The Linear + RH model is straightforward and easier to implement and explain. It only requires two predictors—the raw sensor PM2.5 and the relative humidity—which are readily available from all sensors.
+
+2. **Marginal Gains vs. Complexity:**  
+   The additional complexity of the Full Interaction model results in only marginal improvements (e.g., a decrease in RMSE from 5.50 to 5.28 and MAE from 3.42 to 3.31) which may not justify the increased computational burden and potential for overfitting.
+
+3. **Consistency Across AQI Categories:**  
+   The Linear + RH model provides robust performance across AQI categories, with improved error metrics in the “Moderate” and “USG” ranges, and is competitive in the highest categories despite fewer observations.
+
+4. **Alignment with Previous Work:**  
+   This approach is consistent with the methodology outlined in Barkjohn et al. (2021), where a simple additive RH term significantly reduced bias and improved model accuracy across diverse conditions.
+
+### Conclusion
+
+Based on the above analysis, I will proceed with the **Linear + RH model** for correcting Modulair PM2.5 measurements using the RP FEM average as the reference. This model strikes an optimal balance between accuracy and simplicity, ensuring robust performance while minimizing overfitting and operational complexity.
+
+*Note: These conclusions are drawn from the RP site data, which used an average of the three FEM monitors as it's "True" value. This approach has its limitations. Although I evaluated data from the NC and LT sites, issues with the NC site (likely due to under-sampling by the FEM BAM in Q1 2025), lack of higher concentrations at the LT site, and the stronger data completeness at the RP site have led me to focus on the RP data for this modeling effort. Future work will extend analysis, modeling and validation to these sites and other additional collocation sites.*
+
+## Full Model Fitting and Predictions
+
+### Applying Linear Model (and EPA US PA Correction Equation) to Entire Dataset
 
 ```{r}
-# Fit the linear model (baseline) on the entire combined_modeling_data dataset.
-final_fit_linear <- wf_linear %>% 
+# Fit the final "Linear + RH" model to the entire combined dataset
+final_model <- wf_linear_rh %>% 
   fit(data = combined_modeling_data)
 
-# Generate predictions on the entire dataset and recalculate the AQI categories using the corrected values.
-lm_final_predictions <- predict(final_fit_linear, new_data = combined_modeling_data) %>% 
-  bind_cols(combined_modeling_data) %>%
-  mutate(corrected_mod_aqi = aqiCategories(.pred, pollutant = "PM2.5", NAAQS = "PM2.5_2024"))
+# Generate final predictions using the final model on the combined dataset
+final_predictions <- final_model %>% 
+  predict(new_data = combined_modeling_data)
 
-# Evaluate performance using yardstick metrics (RMSE, R², and MAE).
-final_performance_metrics <- lm_final_predictions %>%
-  metrics(truth = fem_avg, estimate = .pred) %>%
-  filter(.metric %in% c("rmse", "rsq", "mae"))
+# Combine the final predictions with the combined_modeling_data
+# Rename the prediction column to "pred_linear_rh_final"
+final_modeled_data <- combined_modeling_data %>%
+  bind_cols(final_predictions %>% rename(pred_linear_rh_final = .pred)) %>%
+  # Add a new column for the predicted AQI category based on the final predictions
+  mutate(pred_linear_rh_final_aqi = aqiCategories(pred_linear_rh_final, pollutant = "PM2.5", NAAQS = "PM2.5_2024"))
 
-final_performance_metrics %>% 
-  knitr::kable(caption = "Performance Metrics (Entire Dataset) for Linear Model")
-
-# Calculate overall and stratified accuracy metrics using our custom function.
-final_accuracy_metrics <- calculate_all_metrics(
-  data = lm_predictions,
-  fem_col = "fem_avg",
-  mod_col = ".pred",
-  fem_aqi_col = "fem_aqi",
-  mod_aqi_col = "corrected_mod_aqi"
-)
-
-# Display the overall accuracy metrics.
-final_accuracy_metrics$overall %>% 
-  knitr::kable(caption = "Overall Accuracy Metrics on Entire Dataset")
-
-# Display the stratified accuracy metrics by AQI category.
-knitr::kable(final_accuracy_metrics$stratified, caption = "Stratified Accuracy Metrics by AQI Category - Entire Dataset")
-```
-
-## Accuracy
-
-## Coefficients and Equation
-
-```{r}
-# Extract the underlying model object using extract_fit_parsnip()
-lm_model <- extract_fit_parsnip(final_fit_linear)$fit
-
-# Get the coefficients from the linear model
-coefs <- coef(lm_model)
-print(coefs)
-
-# Create readable equation using the correct coefficient names
-model_equation <- paste0("Corrected PM2.5 = ",
-                         round(coefs["(Intercept)"], 2), " + ",
-                         round(coefs["mod_pm25"], 2), " * Modulair PM2.5 + ",
-                         round(coefs["mod_rh"], 2), " * Modulair rh")
-cat("Linear Model Equation:\n", model_equation, "\n")
-```
-
-## Comparison to V1 PurpleAir U.S - wide correction equation 
-
-### Assessing PurpleAir US-wide correction equation for Modulair data:
-
-```{r}
-# Apply the U.S. correction equation to the Modulair measurements
-combined_modeling_data <- combined_modeling_data %>%
+# Apply the EPA PurpleAir U.S. correction equation to the Modulair measurements
+final_modeled_data <- final_modeled_data %>%
   mutate(
     pa_us_correction = 0.524 * mod_pm25 - 0.0862 * mod_rh + 5.75,
     pa_corrected_mod_aqi = aqiCategories(pa_us_correction, pollutant = "PM2.5", NAAQS = "PM2.5_2024")
   )
 
-# Calculate accuracy metrics for the raw Modulair data
-raw_metrics <- calculate_all_metrics(
-  data = combined_modeling_data,
+# View the first few rows of the final modeled data
+head(final_modeled_data)
+```
+
+### Assess Final Model Prediction Accuracy 
+
+### Overall Accuracy
+
+```{r}
+# Compute performance metrics for our Final Model (Linear + RH)
+final_model_metrics <- calculate_all_metrics(
+  data = final_modeled_data,
+  fem_col = "fem_avg",
+  mod_col = "pred_linear_rh_final",
+  fem_aqi_col = "fem_aqi",
+  mod_aqi_col = "pred_linear_rh_final_aqi"
+)
+final_overall <- final_model_metrics$overall %>%
+  mutate(Model = "Final Modeled PM2.5 (Linear + RH)")
+
+# Compute performance metrics for the Uncorrected Modulair PM2.5 data
+uncorrected_metrics <- calculate_all_metrics(
+  data = final_modeled_data,
   fem_col = "fem_avg",
   mod_col = "mod_pm25",
   fem_aqi_col = "fem_aqi",
   mod_aqi_col = "mod_aqi"
 )
+uncorrected_overall <- uncorrected_metrics$overall %>%
+  mutate(Model = "Uncorrected Modulair PM2.5")
 
-# Calculate accuracy metrics for the data corrected using the U.S. equation
-corrected_metrics <- calculate_all_metrics(
-  data = combined_modeling_data,
+# Compute performance metrics for the PA US Correction applied to Modulair data
+pa_us_metrics <- calculate_all_metrics(
+  data = final_modeled_data,
   fem_col = "fem_avg",
   mod_col = "pa_us_correction",
   fem_aqi_col = "fem_aqi",
   mod_aqi_col = "pa_corrected_mod_aqi"
 )
+pa_us_overall <- pa_us_metrics$overall %>%
+  mutate(Model = "EPA PA US Correction Applied")
 
-# Print overall accuracy metrics for raw and corrected data
-raw_metrics$overall %>% 
-  knitr::kable(caption = "Overall Accuracy Metrics: Raw Modulair Data")
+# Combine all metrics into a single comparison table
+comparison_table <- bind_rows(final_overall, uncorrected_overall, pa_us_overall) %>%
+  select(Model, R_squared, Average_Error, MAE, RMSE, NRMSE, Slope, Intercept, aqi_match_frequency)
 
-corrected_metrics$overall %>% 
-  knitr::kable(caption = "Overall Accuracy Metrics: U.S. Correction Applied")
-
-# Optionally, compare stratified metrics by AQI category as well
-knitr::kable(corrected_metrics$stratified, caption = "Stratified Accuracy Metrics by AQI Category (Corrected Data)")
-
+# Display the final comparison table
+comparison_table %>%
+  knitr::kable(caption = "Overall Performance Metrics Comparison: Final Model vs. Uncorrected Modulair vs. PA US Correction")
 ```
+
+### AQI Stratefied Accuracy
+
+```{r}
+# Compute stratified performance metrics for the Final Model (Linear + RH)
+final_stratified <- final_model_metrics$stratified %>%
+  mutate(Model = "Final Modeled PM2.5 (Linear + RH)")
+
+# Compute stratified performance metrics for the Uncorrected Modulair PM2.5 data
+uncorrected_stratified <- uncorrected_metrics$stratified %>%
+  mutate(Model = "Uncorrected Modulair PM2.5")
+
+# Compute stratified performance metrics for the EPA PA US Correction applied to Modulair data
+pa_us_stratified <- pa_us_metrics$stratified %>%
+  mutate(Model = "EPA PA US Correction Applied")
+
+# Combine all stratified metrics into a single comparison table
+stratified_comparison_table <- bind_rows(final_stratified, uncorrected_stratified, pa_us_stratified) %>%
+  select(Model, category, Count, R_squared, MAE, Average_Error, RMSE, NRMSE)
+
+# Display the final stratified performance metrics comparison table
+stratified_comparison_table %>%
+  knitr::kable(caption = "Stratified Final Modeling Performance Metrics Comparison by AQI Category")
+```
+
+## Coefficients and Equation
+
+```{r}
+# Extract the underlying model object using extract_fit_parsnip()
+final_linear_rh_model_fit <- extract_fit_parsnip(final_model)$fit
+
+# Get the coefficients from the linear model
+linear_rh_model_coefs <- coef(final_linear_rh_model_fit)
+print(linear_rh_model_coefs)
+
+# Create readable equation using the correct coefficient names
+model_equation <- paste0("Corrected PM2.5 = ",
+                         round(linear_rh_model_coefs["(Intercept)"], 2), " + ",
+                         round(linear_rh_model_coefs["mod_pm25"], 2), " * Modulair PM2.5 + ",
+                         round(linear_rh_model_coefs["mod_rh"], 2), " * Modulair rh")
+cat("Final Linear Model Equation:\n", model_equation, "\n")
+```
+
+# Final Modeling Summary
+
+After extensive evaluation of several candidate models (including base linear, models with additive RH, interactions, and quadratic forms), we have selected the **Linear + RH** model as our final model. This model was fitted to the entire dataset and represents the culmination of our modeling effort for correcting Modulair sensor PM2.5 data.
+
+## Final Model Performance (Fitted to the Entire Dataset)
+The overall performance metrics for the final model, when compared to the regulatory FEM average, are as follows:
+
+- **Final Modeled PM2.5 (Linear + RH):**
+  - **R²:** 0.67
+  - **Average Error:** ~0.00 µg/m³
+  - **MAE:** ~3.30 µg/m³
+  - **RMSE:** ~4.87 µg/m³
+  - **NRMSE:** ~59
+  - **Slope / Intercept:** 0.67 / 2.70
+  - **AQI Match Frequency:** ~84%
+
+These metrics indicate that our final model substantially improves accuracy over the uncorrected Modulair data, which had higher error metrics (MAE ≈ 3.83 µg/m³ and RMSE ≈ 6.36 µg/m³), and it also outperforms the EPA PurpleAir US Correction applied to Modulair data (MAE ≈ 4.40 µg/m³ and RMSE ≈ 6.26 µg/m³).
+
+## Stratified Performance by AQI Category
+Our stratified analysis by AQI category further supports the final model’s robustness:
+- **Category 1 (Good):** The final model achieves an MAE of ~2.54 µg/m³.
+- **Category 2 (Moderate):** The MAE is reduced to ~4.51 µg/m³ compared to higher errors in the uncorrected data.
+- **Categories 3 (Unhealthy for Sensitive Groups) and 4 (Unhealthy):** The final model notably reduces error and bias, mitigating the significant underestimation observed in the uncorrected measurements.
+
+## Final Correction Equation
+The final model is summarized by the following equation:
+
+> **Corrected PM2.5 = 1.65 + 0.64 * Modulair PM2.5 + 0.03 * Modulair RH**
+
+This equation indicates that the raw Modulair PM2.5 readings are adjusted by scaling (0.64 × Modulair PM2.5), with an additional modest correction for relative humidity (0.03 per unit RH) and a constant offset of 1.65 µg/m³. The inclusion of the RH term is crucial for accounting for moisture-related effects on the sensor’s light-scattering measurements.
+
+## Comparative Analysis
+For context, our final modeled data were compared side-by-side with:
+- **Uncorrected Modulair PM2.5 Data:** Which tend to overestimate in the moderate range and severely underestimate at high pollution levels.
+- **EPA PA US Correction Applied to Modulair Data:** as a comparison figure, worsens PM2.5 accuracy compared to the FEM average.
+
+The overall performance comparison table (shown below) and the stratified metrics by AQI category confirm that the final (Linear + RH) model is the most robust across the full range of observed PM2.5 values.
+
+| Model                                     | R²    | Average Error | MAE   | RMSE  | NRMSE | Slope  | Intercept | AQI Match Frequency |
+|-------------------------------------------|-------|---------------|-------|-------|-------|--------|-----------|---------------------|
+| Final Modeled PM2.5 (Linear + RH)         | 0.67  | 0.00          | 3.30  | 4.87  | 59    | 0.67   | 2.70      | 84%                 |
+| Uncorrected Modulair PM2.5                | 0.67  | 0.17          | 3.83  | 6.36  | 77    | 1.06   | -0.64     | 82%                 |
+| EPA PA US Correction Applied              | 0.58  | 2.94          | 4.40  | 6.26  | 76    | 0.55   | 0.77      | 77%                 |
+
+*(Note: All values are approximations based on our final evaluation.)*
+
+## Conclusion
+Fitting the **Linear + RH** model to the entire Rossiter PM2.5 dataset represents the culmination of our modeling efforts. Our final model not only improves overall prediction accuracy but also consistently enhances performance across different AQI categories. 

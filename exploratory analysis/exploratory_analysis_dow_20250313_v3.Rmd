@@ -7,12 +7,14 @@ output: html_document
 
 # Introduction
 
+Accurate air quality measurements—especially of fine particulate matter (PM2.5)—are critical for public health, regulatory decision-making, and environmental management. Recent advancements in low‐cost sensors have enabled broader spatial and temporal coverage of air quality monitoring. However, raw sensor data often exhibit biases relative to regulatory‐grade measurements obtained from Federal Equivalent Method (FEM) or Federal Reference Method (FRM) monitors. To address these discrepancies, sensor data must be assessed and corrected to ensure they accurately reflect true ambient conditions.
+
 This document performs an exploratory analysis of collocated FEM BAM and Modulair PM2.5 datasets from three MT DEQ sites (RP, NC, and LT). The objectives are to:
 
 - Generate summary tables of descriptive statistics (min, max, mean, standard deviation, etc.) for each parameter for each site.
 - Visualize PM2.5 trends and distributions by site
 - Compute AQI categories for PM2.5 using the AirMontitor package.
-- Calculate a comprehensive set of accuracy metrics (including R², MAE, RMSE, normalized RMSE, regression slope, and intercept), overall and by AQI category for   each site.
+- Calculate a comprehensive set of accuracy metrics (including R², MAE, RMSE, normalized RMSE, regression slope, and intercept), overall and by AQI category for each site.
 
 # Setup
 
@@ -27,6 +29,7 @@ library(knitr)
 library(AirMonitor)  
 library(here)
 library(GGally)
+library(patchwork)
 
 source(here("functions", "analysis_functions.R"))
 
@@ -401,7 +404,7 @@ ggplot(nc_daily, aes(x = date)) +
   annotate("text", x = final_date + days(10), y = 250.4,  label = "V. Unhealthy", vjust = -0.5, hjust = 1.1) +
   scale_color_manual(values = monitor_colors) +
   labs(
-    title = "PM2.5 Time Series at RP Site",
+    title = "PM2.5 Time Series at NC Site",
     x = "Date",
     y = "PM2.5 (µg/m³)",
     color = "Monitor Type"
@@ -425,7 +428,7 @@ ggplot(lt_daily, aes(x = date)) +
   annotate("text", x = final_date + days(10), y = 250.4,  label = "V. Unhealthy", vjust = -0.5, hjust = 1.1) +
   scale_color_manual(values = monitor_colors) +
   labs(
-    title = "PM2.5 Time Series at RP Site",
+    title = "PM2.5 Time Series at LT Site",
     x = "Date",
     y = "PM2.5 (µg/m³)",
     color = "Monitor Type"
@@ -437,7 +440,6 @@ ggplot(lt_daily, aes(x = date)) +
 ## Scatterplot w/ Line of Best Fit & 1:1 by Site
 
 ```{r}
-
 plot_rp <- plot_fit(rp_data, mod_col = "rp_modulair_pm25", fem_col = "rp_fem_avg", site_label = "RP")
 print(plot_rp)
 
@@ -473,9 +475,9 @@ ggpairs(model_vars,
 
 - Moderate correlation between reference and raw sensor PM2.5 (r ∼ 0.77) suggests the sensor is “in the ballpark” but needs a bias correction.
 
-- Minimal linear correlation between PM2.5 and RH/temperature does not rule out the possibility that adding an RH or temperature term can significantly improve your final model—particularly if the sensor’s error depends on meteorology.
+- Minimal linear correlation between PM2.5 and RH/temperature does not rule out the possibility that adding an RH or temperature term can significantly improve the final model—particularly if the sensor’s error depends on meteorology.
 
-- Strong collinearity between temperature and humidity (r ~ −0.66) means you should be mindful about including both in a single linear regression. In some cases, one meteorological term (often RH) captures most of the sensor’s bias.
+- Strong collinearity between temperature and humidity (r ~ −0.66) means we should be mindful about including both in a single linear regression. In some cases, one meteorological term (often RH) captures most of the sensor’s bias.
  
 # Measures of Sensor Accuracy
 
@@ -516,7 +518,7 @@ for (site in names(results)) {
 }
 ```
  
-## Calculate Overall Cccuracy Metrics 
+## Calculate Overall Accuracy Metrics 
 
 ```{r}
 # apply accuracy metrics functions to combined dataset
@@ -535,4 +537,55 @@ print(combined_metrics$overall)
 # Display the stratified accuracy metrics by AQI category for the combined dataset
 kable(combined_metrics$stratified, caption = "Accuracy Metrics by AQI Category - Combined Data")
 ```
+
+# Preliminary Conclusions from EDA and Rationale for Model Selection
+
+Below is a high-level analytical perspective on our exploratory data analysis (EDA) across the three sites (RP, NC, and LT) and what it suggests for our model selection. This discussion focuses solely on the insights derived from the descriptive summaries, AQI distributions, correlation matrix, and raw FEM vs. Modulair performance metrics. It is meant to guide our modeling effort, which we have already initiated, but here I summarize the key takeaways.
+
+## 1. Observed Relationships and Sensor Performance
+
+- **RP Site:**
+  - The raw correlation (R² ≈ 0.67) between the raw Modulair PM2.5 (`mod_pm25`) and the FEM average (`fem_avg`) is fairly strong for an uncorrected sensor compared to a regulatory monitor.
+  - The slope is approximately 1.06 with an intercept around -0.64, suggesting that the Modulair sensor slightly overestimates at higher concentrations and slightly underestimates at lower concentrations.
+  - Error metrics indicate a mean absolute error (MAE) of ~3.83 µg/m³ and a root mean square error (RMSE) of ~6.36 µg/m³. The AQI match frequency is around 82%, meaning that about 18% of the time the raw sensor value falls into a different AQI bin than the FEM.
+  - Stratification by AQI category shows increasing error, especially for the “USG” (Unhealthy for Sensitive Groups) and “Unhealthy” categories, where the limited sample size in “Unhealthy” (33 observations) still reveals a significant negative bias and high error (MAE ~35.5 µg/m³).
+
+- **NC Site:**
+  - The NC site exhibits very low correlation (R² ≈ 0.017) between the sensor and FEM measurements, with a negative average error (≈ -2.31 µg/m³) and a high RMSE (~9.0 µg/m³). The extremely high normalized RMSE (NRMSE ~476%) suggests that there may be operational issues (such as the FEM BAM under-sampling) affecting the data quality here.
+  - The AQI distribution is heavily skewed toward “Good” (over 95% of observations), which limits the diversity of pollution levels captured.
+
+- **LT Site:**
+  - The LT site shows an R² of only ~0.0285 with a positive average error (~1.97 µg/m³) and a lower RMSE (~4.37 µg/m³) compared to NC. The NRMSE is still high (~152%), indicating large relative error compared to the low PM2.5 levels observed.
+  - AQI distribution here is again mostly in the “Good” category (~94%), with a small percentage in the “Moderate” range.
+
+## 2. Descriptive Statistics and Correlation Insights
+
+- At the RP site, `mod_pm25` has a mean around 8.10 µg/m³ and a maximum of about 170 µg/m³, while `fem_avg` has a mean of about 8.25 µg/m³ and a maximum of roughly 104.5 µg/m³. This indicates that while most measurements are in a similar range, there are occasional high spikes in the sensor data that are not fully reflected in the FEM.
+- The RP sensor’s RH values span from ~7% to 95% (mean ~54%), and the temperature data also cover a broad range. The correlation matrix shows a modest negative correlation (r ≈ -0.66) between RH and temperature, which is expected meteorologically.
+- Although the direct correlation between RH and `fem_avg` is small (r ≈ -0.038), previous studies (including those by Barkjohn et al.) indicate that even a small systematic effect of RH on sensor scattering can be leveraged to improve accuracy. This justifies the inclusion of RH as an additive or interaction term in our models.
+
+## 3. Preliminary Modeling Takeaways
+
+- **Single-Predictor Model:** A simple linear model using only `mod_pm25` as the predictor yields R² ≈ 0.67, slope ≈ 1.06, and intercept ≈ -0.64. While these figures are respectable, they leave room for improvement—especially at higher PM2.5 levels where the sensor appears to under-report relative to the FEM.
+  
+- **Potential Model Enhancements:**
+  - **Nonlinear Terms:** The substantial underestimation in the “USG” and “Unhealthy” categories at the RP site suggests that a nonlinear term (such as a polynomial or piecewise function) might help capture the sensor’s saturation or bias at high concentrations.
+  - **Interaction Terms:** The evidence points toward a benefit in adding an interaction term between PM2.5 and RH. Even though the raw correlation between RH and `fem_avg` is small, an interaction can systematically adjust the sensor’s response under varying humidity conditions, aligning with findings from prior studies.
+  - **Temperature:** Given the weak correlation between temperature and `fem_avg`, an additive temperature term may offer limited benefit unless there is evidence of systematic bias at temperature extremes. Based on our data, RH seems to be the more influential environmental variable.
+
+## 4. Site Comparisons and Data Selection
+
+- **RP Site** is the most robust among the three:
+  - It has the highest number of observations (over 11,000 complete hours) and exhibits a balanced distribution across AQI categories (despite some challenges at the high end).
+  - The error metrics (lower RMSE and higher R²) and decent AQI match frequency suggest that the RP site provides a reliable basis for modeling.
+  
+- **NC and LT Sites:**
+  - The NC site has very limited variability in pollution levels (mostly “Good”) and shows poor correlation, likely due to suspected FEM under-sampling issues in Q1 of 2025.
+  - The LT site, while having a reasonable number of observations, also predominantly captures “Good” air quality conditions, which limits the ability to model corrections for higher pollution levels.
+
+Given these insights, I have decided to move forward primarily with the RP site data for model development. The RP dataset offers a robust and representative sample with sufficient variability across AQI categories to support a nuanced correction model that may incorporate nonlinear or interaction effects with RH. For future work, it might be worthwhile to explore why the NC site performs poorly and whether additional data cleaning or sensor calibration is needed there.
+
+*This summary is based on the descriptive statistics, AQI category counts, accuracy metrics by site, and stratified performance metrics we generated during our EDA. It serves as the rationale for our current focus on the RP site for modeling, while also highlighting potential areas of improvement in model specification (e.g., nonlinear terms or interactions) to address biases observed at higher pollution levels.*
+
+
 
