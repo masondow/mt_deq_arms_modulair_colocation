@@ -1,3 +1,13 @@
+Week 11 - 4/1/25 Update
+
+Progress: Submitted a first draft of my digital product on Sunday night, using arcGIS StoryMaps as the storytelling tool. Analysis and modeling are all basically complete, some light code cleanup and maybe some output/graph formatting is still to come, but I am satisfied with the outcomes I have generated for this project. 
+
+Problems: I got stuck using a free version of the arcGIS account to generate my first storymap, as I couldn't enable access to that specific tool using my paid State account. I have since be granted access to this functionality, which will allow me to use some of the embeddable funtions from this more robust version.  
+
+Plans: I need to add in all of my final EDA and Modeling conclusions ot my report for this weekend's 2nd report draft. I feel pretty good about this and should make substantial content improvements from draft 1 - 2, which I left the second half of largely just noted/bulletted. I also need to build out my R Shiny app for visualizing the various modeling outputs for my digital product's interactive portion. 
+
+Hours: 16 hours this week finalizing the modeling workbook and drafting my digital product in StoryMaps. 
+
 Week 9/10 - 3/24/25 Update
 
 Progress: Submitted a first draft of my report on Sunday night. The report writing went well--I think I am striking the balance between writing a report on my findings exclusively for my ARMS section members as well as a more broad whitepaper explaining the entire project purpose and process. The report has all by one section of my figures I want to include for explaining my exploratory data analysis, and lacks text for the majority of takeaways there. Those sections, but the writeup of the modeling effort, are to come in a second draft. 
