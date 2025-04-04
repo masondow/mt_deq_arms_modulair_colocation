@@ -271,7 +271,7 @@ rp_stacked <- stack_monitor_data(rp_data, "datetime", names(rp_recode), rp_recod
 ggplot(rp_stacked, aes(x = monitor, y = pm25, fill = monitor)) +
   geom_boxplot() +
   scale_fill_manual(values = monitor_colors) +
-  labs(title = "PM2.5 Distribution at RP Site", x = "Monitor", y = "PM2.5 (µg/m³)") +
+  labs(title = "PM2.5 Distribution at RP Site", x = "Monitor", y = "PM2.5 (ug/m3)") +
   geom_hline( # Add annotated line at each AQI breakpoint
     yintercept = aqi_breaks,
     color = aqi_colors,
@@ -299,7 +299,7 @@ nc_stacked <- stack_monitor_data(nc_data, "datetime", names(nc_recode), nc_recod
 ggplot(nc_stacked, aes(x = monitor, y = pm25, fill = monitor)) +
   geom_boxplot() +
   scale_fill_manual(values = monitor_colors) +
-  labs(title = "PM2.5 Distribution at NC Site", x = "Monitor", y = "PM2.5 (µg/m³)") +
+  labs(title = "PM2.5 Distribution at NC Site", x = "Monitor", y = "PM2.5 (ug/m3)") +
   geom_hline( 
     yintercept = aqi_breaks,
     color = aqi_colors,
@@ -327,7 +327,7 @@ lt_stacked <- stack_monitor_data(lt_data, "datetime", names(lt_recode), lt_recod
 ggplot(lt_stacked, aes(x = monitor, y = pm25, fill = monitor)) +
   geom_boxplot() +
   scale_fill_manual(values = monitor_colors) +
-  labs(title = "PM2.5 Distribution at LT Site", x = "Monitor", y = "PM2.5 (µg/m³)") +
+  labs(title = "PM2.5 Distribution at LT Site", x = "Monitor", y = "PM2.5 (ug/m3)") +
  geom_hline( 
     yintercept = aqi_breaks,
     color = aqi_colors,
@@ -587,5 +587,42 @@ Given these insights, I have decided to move forward primarily with the RP site 
 
 *This summary is based on the descriptive statistics, AQI category counts, accuracy metrics by site, and stratified performance metrics we generated during our EDA. It serves as the rationale for our current focus on the RP site for modeling, while also highlighting potential areas of improvement in model specification (e.g., nonlinear terms or interactions) to address biases observed at higher pollution levels.*
 
+```{r}
+# Save All kable() Tables to Excel Files for report 
+
+library(writexl)
+
+# Define data folder
+data_folder <- here("data")
+
+# Save each table individually
+
+# 1. Summary of Observations and AQI Category Counts
+write_xlsx(combined_summaries, file.path(data_folder, "summary_aqi_counts.xlsx"))
+
+# 2. Descriptive Statistics for RP
+write_xlsx(rp_stats, file.path(data_folder, "rp_descriptive_stats.xlsx"))
+
+# 3. Descriptive Statistics for NC
+write_xlsx(nc_stats, file.path(data_folder, "nc_descriptive_stats.xlsx"))
+
+# 4. Descriptive Statistics for LT
+write_xlsx(lt_stats, file.path(data_folder, "lt_descriptive_stats.xlsx"))
+
+# 5. Overall Accuracy Metrics
+write_xlsx(overall_table, file.path(data_folder, "overall_accuracy_metrics.xlsx"))
+
+# 6. Stratified Accuracy Metrics by AQI Category for RP, NC, LT
+write_xlsx(results$rp$stratified, file.path(data_folder, "rp_stratified_accuracy_metrics.xlsx"))
+write_xlsx(results$nc$stratified, file.path(data_folder, "nc_stratified_accuracy_metrics.xlsx"))
+write_xlsx(results$lt$stratified, file.path(data_folder, "lt_stratified_accuracy_metrics.xlsx"))
+
+# 7. Stratified Accuracy Metrics for Combined Data
+write_xlsx(combined_metrics$stratified, file.path(data_folder, "combined_stratified_accuracy_metrics.xlsx"))
+
+# Confirmation Message
+cat("✅ All tables printed with kable() have been saved successfully to the data folder.\n")
+
+```
 
 
