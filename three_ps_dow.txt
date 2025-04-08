@@ -1,3 +1,13 @@
+Week 12 - 4/8/25 Update
+
+Progress: Report draft V3 will be finsihed this evening.
+
+Problems: Setting aside all of my analysis and wanting to tinker, and instead sit down and write conclusive difinitive statements!
+
+Plans: Finishing my report draft V3 for peers as I write this. Will review peer's reports this weekend. 
+
+Hours: 8 hours this week. 
+
 Week 11 - 4/1/25 Update
 
 Progress: Submitted a first draft of my digital product on Sunday night, using arcGIS StoryMaps as the storytelling tool. Analysis and modeling are all basically complete, some light code cleanup and maybe some output/graph formatting is still to come, but I am satisfied with the outcomes I have generated for this project. 
