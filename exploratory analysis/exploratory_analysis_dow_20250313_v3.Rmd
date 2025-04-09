@@ -31,7 +31,7 @@ library(here)
 library(GGally)
 library(patchwork)
 
-source(here("functions", "analysis_functions.R"))
+source(here("functions", "R_analysis_modeling_functions_dow_20250409"))
 
 theme_set(theme_minimal())
 ```
