@@ -31,7 +31,7 @@ library(here)
 library(GGally)
 library(patchwork)
 
-source(here("functions", "R_analysis_modeling_functions_dow_20250409"))
+source(here("functions", "R_analysis_modeling_functions_dow_20250409.R"))
 
 theme_set(theme_minimal())
 ```
@@ -114,44 +114,60 @@ aqi_colors  <- c("green", "yellow", "orange", "red", "purple")
 # Hourly Data
 
 # Add AQI categories using AirMonitor's aqiCategories() function.
+
+# RP Site
 rp_data <- rp_data %>%
-  mutate(rp_modulair_aqi = aqiCategories(rp_modulair_pm25, pollutant = "PM2.5", NAAQS = "PM2.5_2024"),
-         rp_purpleair_aqi = aqiCategories(rp_purpleair_cf1, pollutant = "PM2.5", NAAQS = "PM2.5_2024"),
-         rp_fem_aqi = aqiCategories(rp_fem_avg, pollutant = "PM2.5", NAAQS = "PM2.5_2024"))
+  mutate(
+    rp_modulair_aqi = aqiCategories(rp_modulair_pm25, pollutant = "PM2.5", NAAQS = "PM2.5_2024"),
+    rp_purpleair_aqi = aqiCategories(rp_purpleair_cf1, pollutant = "PM2.5", NAAQS = "PM2.5_2024"),
+    rp_1020_aqi = aqiCategories(rp_1020, pollutant = "PM2.5", NAAQS = "PM2.5_2024"),
+    rp_1022_aqi = aqiCategories(rp_1022, pollutant = "PM2.5", NAAQS = "PM2.5_2024"),
+    rp_thermo_aqi = aqiCategories(rp_thermo, pollutant = "PM2.5", NAAQS = "PM2.5_2024"),
+    rp_fem_avg_aqi = aqiCategories(rp_fem_avg, pollutant = "PM2.5", NAAQS = "PM2.5_2024")
+  )
 
+# NC Site
 nc_data <- nc_data %>%
-  mutate(nc_modulair_aqi = aqiCategories(nc_modulair_pm25, pollutant = "PM2.5", NAAQS = "PM2.5_2024"),
-         nc_purpleair_aqi = aqiCategories(nc_purpleair_cf1, pollutant = "PM2.5", NAAQS = "PM2.5_2024"),
-         nc_fem_aqi = aqiCategories(nc_1020, pollutant = "PM2.5", NAAQS = "PM2.5_2024"))
+  mutate(
+    nc_modulair_aqi = aqiCategories(nc_modulair_pm25, pollutant = "PM2.5", NAAQS = "PM2.5_2024"),
+    nc_purpleair_aqi = aqiCategories(nc_purpleair_cf1, pollutant = "PM2.5", NAAQS = "PM2.5_2024"),
+    nc_1020_aqi = aqiCategories(nc_1020, pollutant = "PM2.5", NAAQS = "PM2.5_2024")
+  )
 
+# LT Site
 lt_data <- lt_data %>%
-  mutate(lt_modulair_aqi = aqiCategories(lt_modulair_pm25, pollutant = "PM2.5", NAAQS = "PM2.5_2024"),
-         lt_purpleair_aqi = aqiCategories(lt_purpleair_cf1, pollutant = "PM2.5", NAAQS = "PM2.5_2024"),
-         lt_fem_aqi = aqiCategories(lt_thermo, pollutant = "PM2.5", NAAQS = "PM2.5_2024"))
-
+  mutate(
+    lt_modulair_aqi = aqiCategories(lt_modulair_pm25, pollutant = "PM2.5", NAAQS = "PM2.5_2024"),
+    lt_purpleair_aqi = aqiCategories(lt_purpleair_cf1, pollutant = "PM2.5", NAAQS = "PM2.5_2024"),
+    lt_thermo_aqi = aqiCategories(lt_thermo, pollutant = "PM2.5", NAAQS = "PM2.5_2024")
+  )
 
 ```
 
 ```{r}
-# Daily Data
-
-# Add AQI categories using AirMonitor's aqiCategories() function.
+# RP Daily
 rp_daily <- rp_daily %>%
-  mutate(rp_modulair_aqi = aqiCategories(rp_modulair_pm25, pollutant = "PM2.5", NAAQS = "PM2.5_2024"),
-         rp_purpleair_aqi = aqiCategories(rp_purpleair_cf1, pollutant = "PM2.5", NAAQS = "PM2.5_2024"),
-         rp_fem_aqi = aqiCategories(rp_fem_avg, pollutant = "PM2.5", NAAQS = "PM2.5_2024"))
+  mutate(
+    rp_modulair_aqi = aqiCategories(rp_modulair_pm25, pollutant = "PM2.5", NAAQS = "PM2.5_2024"),
+    rp_purpleair_aqi = aqiCategories(rp_purpleair_cf1, pollutant = "PM2.5", NAAQS = "PM2.5_2024"),
+    rp_fem_aqi = aqiCategories(rp_fem_avg, pollutant = "PM2.5", NAAQS = "PM2.5_2024")
+  )
 
+# NC Daily
 nc_daily <- nc_daily %>%
-  mutate(nc_modulair_aqi = aqiCategories(nc_modulair_pm25, pollutant = "PM2.5", NAAQS = "PM2.5_2024"),
-         nc_purpleair_aqi = aqiCategories(nc_purpleair_cf1, pollutant = "PM2.5", NAAQS = "PM2.5_2024"),
-         nc_fem_aqi = aqiCategories(nc_1020, pollutant = "PM2.5", NAAQS = "PM2.5_2024"))
+  mutate(
+    nc_modulair_aqi = aqiCategories(nc_modulair_pm25, pollutant = "PM2.5", NAAQS = "PM2.5_2024"),
+    nc_purpleair_aqi = aqiCategories(nc_purpleair_cf1, pollutant = "PM2.5", NAAQS = "PM2.5_2024"),
+    nc_fem_aqi = aqiCategories(nc_1020, pollutant = "PM2.5", NAAQS = "PM2.5_2024")
+  )
 
+# LT Daily
 lt_daily <- lt_daily %>%
-  mutate(lt_modulair_aqi = aqiCategories(lt_modulair_pm25, pollutant = "PM2.5", NAAQS = "PM2.5_2024"),
-         lt_purpleair_aqi = aqiCategories(lt_purpleair_cf1, pollutant = "PM2.5", NAAQS = "PM2.5_2024"),
-         lt_fem_aqi = aqiCategories(lt_thermo, pollutant = "PM2.5", NAAQS = "PM2.5_2024"))
-
-
+  mutate(
+    lt_modulair_aqi = aqiCategories(lt_modulair_pm25, pollutant = "PM2.5", NAAQS = "PM2.5_2024"),
+    lt_purpleair_aqi = aqiCategories(lt_purpleair_cf1, pollutant = "PM2.5", NAAQS = "PM2.5_2024"),
+    lt_fem_aqi = aqiCategories(lt_thermo, pollutant = "PM2.5", NAAQS = "PM2.5_2024")
+  )
 ```
 
 ## Create Combined Dataset with Consitent Column Names
@@ -159,45 +175,53 @@ lt_daily <- lt_daily %>%
 ```{r}
 # For all datasets, rename site-specific columns to common names via *_combined tables
 
+# RP Site
 rp_combined <- rp_data %>%
   rename(
-    fem_avg = rp_fem_avg,            # FEM measurement
-    mod_pm25 = rp_modulair_pm25,       # Modulair PM2.5 measurement
-    mod_rh = rp_modulair_rh,           # Modulair measured RH
-    mod_tempc = rp_modulair_tempc,     # Modulair measured ambient temperature (°C)
-    fem_aqi = rp_fem_aqi,              # FEM AQI category
-    mod_aqi = rp_modulair_aqi          # Modulair AQI category
+    fem_avg = rp_fem_avg,               # FEM avg PM2.5
+    mod_pm25 = rp_modulair_pm25,         # Modulair PM2.5
+    purpleair_pm25 = rp_purpleair_cf1,   # PurpleAir PM2.5
+    mod_rh = rp_modulair_rh,             # Modulair RH
+    mod_tempc = rp_modulair_tempc,       # Modulair Temperature
+    fem_aqi = rp_fem_avg_aqi,            # FEM AQI
+    mod_aqi = rp_modulair_aqi,           # Modulair AQI
+    purpleair_aqi = rp_purpleair_aqi     # PurpleAir AQI
   )
 
+# NC Site
 nc_combined <- nc_data %>%
   rename(
-    fem_avg = nc_1020,          # FEM measurement from NC
-    mod_pm25 = nc_modulair_pm25,  # Modulair PM2.5 measurement
-    fem_aqi = nc_fem_aqi,         # FEM AQI category
-    mod_aqi = nc_modulair_aqi,     # Modulair AQI category
-    mod_rh = nc_modulair_rh,       # Modulair measured RH
-    mod_tempc = nc_modulair_tempc,     # Modulair measured ambient temperature (°C)
+    fem_avg = nc_1020,
+    mod_pm25 = nc_modulair_pm25,
+    purpleair_pm25 = nc_purpleair_cf1,
+    fem_aqi = nc_1020_aqi,
+    mod_aqi = nc_modulair_aqi,
+    purpleair_aqi = nc_purpleair_aqi,
+    mod_rh = nc_modulair_rh,
+    mod_tempc = nc_modulair_tempc
   )
 
+# LT Site
 lt_combined <- lt_data %>%
   rename(
-    fem_avg = lt_thermo,         # FEM measurement from LT
-    mod_pm25 = lt_modulair_pm25,   # Modulair PM2.5 measurement
-    fem_aqi = lt_fem_aqi,          # FEM AQI category
-    mod_aqi = lt_modulair_aqi,      # Modulair AQI category
-    mod_rh = lt_modulair_rh,        # Modulair measured RH
-    mod_tempc = lt_modulair_tempc,     # Modulair measured ambient temperature (°C)
+    fem_avg = lt_thermo,
+    mod_pm25 = lt_modulair_pm25,
+    purpleair_pm25 = lt_purpleair_cf1,
+    fem_aqi = lt_thermo_aqi,
+    mod_aqi = lt_modulair_aqi,
+    purpleair_aqi = lt_purpleair_aqi,
+    mod_rh = lt_modulair_rh,
+    mod_tempc = lt_modulair_tempc
   )
 
-# Combine the datasets into one dataset
+# Combine sites
 combined_data <- bind_rows(rp_combined, nc_combined, lt_combined)
 
-# Select only the columns that follow our standardized naming scheme (plus datetime and siteid)
+# Select and order columns cleanly
 combined_data <- combined_data %>%
-  select(siteid, datetime, fem_avg, mod_pm25, mod_rh, mod_tempc, fem_aqi, mod_aqi)
+  select(siteid, datetime, fem_avg, mod_pm25, purpleair_pm25, mod_rh, mod_tempc, fem_aqi, mod_aqi, purpleair_aqi)
 
-
-# Check the first few rows to verify the merge worked as expected.
+# Preview combined data
 head(combined_data)
 
 ```
@@ -214,9 +238,9 @@ head(combined_data)
 # For RP site:
 rp_summary <- summarize_counts(
   data     = rp_data,
-  fem_col  = "rp_fem_avg",       # or rp_fem_weighted_avg if that's your main reference
+  fem_col  = "rp_fem_avg",       
   mod_col  = "rp_modulair_pm25",
-  aqi_col  = "rp_fem_aqi"
+  aqi_col  = "rp_fem_avg_aqi" # using FEM average for AQI col at RP
 )
 
 # For NC site 
@@ -224,7 +248,7 @@ nc_summary <- summarize_counts(
   data     = nc_data,
   fem_col  = "nc_1020",
   mod_col  = "nc_modulair_pm25",
-  aqi_col  = "nc_fem_aqi"
+  aqi_col  = "nc_1020_aqi"
 )
 
 # For LT site:
@@ -232,7 +256,7 @@ lt_summary <- summarize_counts(
   data     = lt_data,
   fem_col  = "lt_thermo",
   mod_col  = "lt_modulair_pm25",
-  aqi_col  = "lt_fem_aqi"
+  aqi_col  = "lt_thermo_aqi"
 )
 
 # Combine site-level summaries into one table, print w/ kable
@@ -480,63 +504,242 @@ ggpairs(model_vars,
 - Strong collinearity between temperature and humidity (r ~ −0.66) means we should be mindful about including both in a single linear regression. In some cases, one meteorological term (often RH) captures most of the sensor’s bias.
  
 # Measures of Sensor Accuracy
-
-## Metrics by Site & AQI Category
  
-```{r}
-# For Loop to calculate accuracy metrics functions for each site & overall 
-
-datasets <- list(rp = rp_data, nc = nc_data, lt = lt_data)
-results <- list()
-
-col_info <- list(
-  rp = list(fem = "rp_fem_avg", mod = "rp_modulair_pm25", fem_aqi = "rp_fem_aqi", mod_aqi = "rp_modulair_aqi"),
-  nc = list(fem = "nc_1020", mod = "nc_modulair_pm25", fem_aqi = "nc_fem_aqi", mod_aqi = "nc_modulair_aqi"),
-  lt = list(fem = "lt_thermo", mod = "lt_modulair_pm25", fem_aqi = "lt_fem_aqi", mod_aqi = "lt_modulair_aqi")
-)
-
-for (site in names(datasets)) {
-  results[[site]] <- calculate_all_metrics(
-    data = datasets[[site]],
-    fem_col = col_info[[site]]$fem,
-    mod_col = col_info[[site]]$mod,
-    fem_aqi_col = col_info[[site]]$fem_aqi,
-    mod_aqi_col = col_info[[site]]$mod_aqi
-  )
-}
-
-# bind tables, print results 
-
-overall_table <- bind_rows(lapply(names(results), function(site) {
-  results[[site]]$overall %>% mutate(site = site)
-}))
-overall_table <- overall_table %>% select(site, everything())
-kable(overall_table, caption = "Overall Accuracy Metrics by Site (FEM vs. Modulair)")
-
-for (site in names(results)) {
-  print(kable(results[[site]]$stratified, caption = paste("Accuracy Metrics by AQI Category -", site, "Site")))
-}
-```
- 
-## Calculate Overall Accuracy Metrics 
+## Overall Accuracy Metrics 
 
 ```{r}
-# apply accuracy metrics functions to combined dataset
+# ---------------------------------------------------------------
+# Updated: Overall and Stratified Accuracy Metrics for Combined Dataset
+# ---------------------------------------------------------------
 
-combined_metrics <- calculate_all_metrics(
+# Helper function for clean labeling
+add_labels <- function(metrics_tbl, sensor_label) {
+  metrics_tbl %>%
+    mutate(Sensor = sensor_label) %>%
+    relocate(Sensor, .before = everything())
+}
+
+# ----------------
+# Overall Accuracy Metrics
+# ----------------
+
+# Modulair vs FEM
+combined_modulair_overall <- calculate_all_metrics(
   data = combined_data,
   fem_col = "fem_avg",
-  mod_col = "mod_pm25",
+  sensor_col = "mod_pm25",
   fem_aqi_col = "fem_aqi",
-  mod_aqi_col = "mod_aqi"
+  sensor_aqi_col = "mod_aqi"
 )
 
-# Display the overall metrics for the combined dataset
-print(combined_metrics$overall)
+# PurpleAir vs FEM
+combined_purpleair_overall <- calculate_all_metrics(
+  data = combined_data,
+  fem_col = "fem_avg",
+  sensor_col = "purpleair_pm25",
+  fem_aqi_col = "fem_aqi",
+  sensor_aqi_col = "purpleair_aqi"
+)
 
-# Display the stratified accuracy metrics by AQI category for the combined dataset
-kable(combined_metrics$stratified, caption = "Accuracy Metrics by AQI Category - Combined Data")
+# Combine overall results
+combined_overall_table <- bind_rows(
+  add_labels(combined_modulair_overall, "Modulair"),
+  add_labels(combined_purpleair_overall, "PurpleAir")
+)
+
+# Print overall table
+kable(combined_overall_table, caption = "Overall Accuracy Metrics - Combined Dataset (Modulair and PurpleAir)")
+
+# ----------------
+# Stratified Accuracy Metrics
+# ----------------
+
+# Modulair vs FEM stratified
+combined_modulair_stratified <- calculate_stratified_metrics(
+  data = combined_data,
+  fem_col = "fem_avg",
+  sensor_col = "mod_pm25",
+  fem_aqi_col = "fem_aqi"
+)
+
+# PurpleAir vs FEM stratified
+combined_purpleair_stratified <- calculate_stratified_metrics(
+  data = combined_data,
+  fem_col = "fem_avg",
+  sensor_col = "purpleair_pm25",
+  fem_aqi_col = "fem_aqi"
+)
+
+# Combine stratified results
+combined_stratified_table <- bind_rows(
+  add_labels(combined_modulair_stratified, "Modulair"),
+  add_labels(combined_purpleair_stratified, "PurpleAir")
+)
+
+# Print stratified table
+kable(combined_stratified_table, caption = "Stratified Accuracy Metrics by AQI Category - Combined Dataset (Modulair and PurpleAir)")
+
+
 ```
+## Metrics by Site and FEM Monitor:
+
+```{r}
+
+# Overall Accuracy Metrics by Site (Modulair and PurpleAir)
+
+run_comparison <- function(data, fem_col, sensor_col, fem_aqi_col = NULL, sensor_aqi_col = NULL, sensor_label) {
+  metrics <- calculate_all_metrics(data, fem_col, sensor_col, fem_aqi_col, sensor_aqi_col)
+  
+  if (is.list(metrics) && "overall" %in% names(metrics)) {
+    metrics <- metrics$overall
+  }
+  
+  metrics <- metrics %>%
+    mutate(
+      FEM_Reference = fem_col,
+      Sensor = sensor_label
+    )
+  
+  return(metrics)
+}
+
+# Initialize empty lists to store results
+rp_metrics <- list()
+nc_metrics <- list()
+lt_metrics <- list()
+
+# ----------------
+# RP Site (compare to 3 FEMs and FEM average)
+# ----------------
+
+# Modulair comparisons at RP
+rp_metrics[["Modulair_vs_1020"]]  <- run_comparison(rp_data, "rp_1020", "rp_modulair_pm25", "rp_1020_aqi", "rp_modulair_aqi", "Modulair")
+rp_metrics[["Modulair_vs_1022"]]  <- run_comparison(rp_data, "rp_1022", "rp_modulair_pm25", "rp_1022_aqi", "rp_modulair_aqi", "Modulair")
+rp_metrics[["Modulair_vs_Thermo"]] <- run_comparison(rp_data, "rp_thermo", "rp_modulair_pm25", "rp_thermo_aqi", "rp_modulair_aqi", "Modulair")
+rp_metrics[["Modulair_vs_FEM_Avg"]] <- run_comparison(rp_data, "rp_fem_avg", "rp_modulair_pm25", "rp_fem_avg_aqi", "rp_modulair_aqi", "Modulair")
+
+# PurpleAir comparisons at RP
+rp_metrics[["PurpleAir_vs_1020"]]  <- run_comparison(rp_data, "rp_1020", "rp_purpleair_cf1", "rp_1020_aqi", "rp_purpleair_aqi", "PurpleAir")
+rp_metrics[["PurpleAir_vs_1022"]]  <- run_comparison(rp_data, "rp_1022", "rp_purpleair_cf1", "rp_1022_aqi", "rp_purpleair_aqi", "PurpleAir")
+rp_metrics[["PurpleAir_vs_Thermo"]] <- run_comparison(rp_data, "rp_thermo", "rp_purpleair_cf1", "rp_thermo_aqi", "rp_purpleair_aqi", "PurpleAir")
+rp_metrics[["PurpleAir_vs_FEM_Avg"]] <- run_comparison(rp_data, "rp_fem_avg", "rp_purpleair_cf1", "rp_fem_avg_aqi", "rp_purpleair_aqi", "PurpleAir")
+
+# Combine RP results
+rp_metrics_table <- bind_rows(rp_metrics) %>%
+  select(Sensor, FEM_Reference, everything())
+
+# Print RP table
+kable(rp_metrics_table, caption = "Overall Accuracy Metrics - RP Site")
+
+# ----------------
+# NC Site
+# ----------------
+
+# Modulair vs NC 1020
+nc_metrics[["Modulair_vs_1020"]] <- run_comparison(nc_data, "nc_1020", "nc_modulair_pm25", "nc_1020_aqi", "nc_modulair_aqi", "Modulair")
+# PurpleAir vs NC 1020
+nc_metrics[["PurpleAir_vs_1020"]] <- run_comparison(nc_data, "nc_1020", "nc_purpleair_cf1", "nc_1020_aqi", "nc_purpleair_aqi", "PurpleAir")
+
+# Combine NC results
+nc_metrics_table <- bind_rows(nc_metrics) %>%
+  select(Sensor, FEM_Reference, everything())
+
+# Print NC table
+kable(nc_metrics_table, caption = "Overall Accuracy Metrics - NC Site")
+
+# ----------------
+# LT Site
+# ----------------
+
+# Modulair vs LT Thermo
+lt_metrics[["Modulair_vs_Thermo"]] <- run_comparison(lt_data, "lt_thermo", "lt_modulair_pm25", "lt_thermo_aqi", "lt_modulair_aqi", "Modulair")
+# PurpleAir vs LT Thermo
+lt_metrics[["PurpleAir_vs_Thermo"]] <- run_comparison(lt_data, "lt_thermo", "lt_purpleair_cf1", "lt_thermo_aqi", "lt_purpleair_aqi", "PurpleAir")
+
+# Combine LT results
+lt_metrics_table <- bind_rows(lt_metrics) %>%
+  select(Sensor, FEM_Reference, everything())
+
+# Print LT table
+kable(lt_metrics_table, caption = "Overall Accuracy Metrics - LT Site")
+
+```
+
+## Metrics by AQI Category
+
+### By Site
+
+```{r}
+# ---------------------------------------------------------------
+# Stratified Accuracy Metrics by Site (using FEM Average at RP only)
+# ---------------------------------------------------------------
+
+# Helper function to run stratified comparison easily
+run_stratified_comparison <- function(data, fem_col, sensor_col, fem_aqi_col, sensor_label) {
+  metrics <- calculate_stratified_metrics(data, fem_col, sensor_col, fem_aqi_col)
+  
+  metrics <- metrics %>%
+    mutate(
+      Sensor = sensor_label,
+      FEM_Reference = fem_col
+    ) %>%
+    relocate(Sensor, FEM_Reference, AQI_Category)  
+  
+  return(metrics)
+}
+
+# Initialize empty lists
+rp_stratified_metrics <- list()
+nc_stratified_metrics <- list()
+lt_stratified_metrics <- list()
+
+# ----------------
+# RP Site (ONLY compare against FEM Average)
+# ----------------
+
+# Modulair vs FEM Average at RP
+rp_stratified_metrics[["Modulair_vs_FEM_Avg"]] <- run_stratified_comparison(rp_data, "rp_fem_avg", "rp_modulair_pm25", "rp_fem_avg_aqi", "Modulair")
+# PurpleAir vs FEM Average at RP
+rp_stratified_metrics[["PurpleAir_vs_FEM_Avg"]] <- run_stratified_comparison(rp_data, "rp_fem_avg", "rp_purpleair_cf1", "rp_fem_avg_aqi", "PurpleAir")
+
+# Combine RP stratified results
+rp_stratified_table <- bind_rows(rp_stratified_metrics)
+
+# Print RP table
+kable(rp_stratified_table, caption = "Stratified Accuracy Metrics - RP Site (FEM Average Only)")
+
+# ----------------
+# NC Site
+# ----------------
+
+# Modulair vs NC 1020
+nc_stratified_metrics[["Modulair_vs_1020"]] <- run_stratified_comparison(nc_data, "nc_1020", "nc_modulair_pm25", "nc_1020_aqi", "Modulair")
+# PurpleAir vs NC 1020
+nc_stratified_metrics[["PurpleAir_vs_1020"]] <- run_stratified_comparison(nc_data, "nc_1020", "nc_purpleair_cf1", "nc_1020_aqi", "PurpleAir")
+
+# Combine NC stratified results
+nc_stratified_table <- bind_rows(nc_stratified_metrics)
+
+# Print NC table
+kable(nc_stratified_table, caption = "Stratified Accuracy Metrics - NC Site")
+
+# ----------------
+# LT Site
+# ----------------
+
+# Modulair vs LT Thermo
+lt_stratified_metrics[["Modulair_vs_Thermo"]] <- run_stratified_comparison(lt_data, "lt_thermo", "lt_modulair_pm25", "lt_thermo_aqi", "Modulair")
+# PurpleAir vs LT Thermo
+lt_stratified_metrics[["PurpleAir_vs_Thermo"]] <- run_stratified_comparison(lt_data, "lt_thermo", "lt_purpleair_cf1", "lt_thermo_aqi", "PurpleAir")
+
+# Combine LT stratified results
+lt_stratified_table <- bind_rows(lt_stratified_metrics)
+
+# Print LT table
+kable(lt_stratified_table, caption = "Stratified Accuracy Metrics - LT Site")
+
+```
+
 
 # Preliminary Conclusions from EDA and Rationale for Model Selection
 
@@ -588,40 +791,41 @@ Given these insights, I have decided to move forward primarily with the RP site 
 *This summary is based on the descriptive statistics, AQI category counts, accuracy metrics by site, and stratified performance metrics we generated during our EDA. It serves as the rationale for our current focus on the RP site for modeling, while also highlighting potential areas of improvement in model specification (e.g., nonlinear terms or interactions) to address biases observed at higher pollution levels.*
 
 ```{r}
-# Save All kable() Tables to Excel Files for report 
+# Save All Updated kable() Tables to Excel Files for report 
 
 library(writexl)
 
 # Define data folder
 data_folder <- here("data")
 
-# Save each table individually
+# Save each updated table individually
 
 # 1. Summary of Observations and AQI Category Counts
 write_xlsx(combined_summaries, file.path(data_folder, "summary_aqi_counts.xlsx"))
 
-# 2. Descriptive Statistics for RP
+# 2. Descriptive Statistics for RP, NC, LT
 write_xlsx(rp_stats, file.path(data_folder, "rp_descriptive_stats.xlsx"))
-
-# 3. Descriptive Statistics for NC
 write_xlsx(nc_stats, file.path(data_folder, "nc_descriptive_stats.xlsx"))
-
-# 4. Descriptive Statistics for LT
 write_xlsx(lt_stats, file.path(data_folder, "lt_descriptive_stats.xlsx"))
 
-# 5. Overall Accuracy Metrics
-write_xlsx(overall_table, file.path(data_folder, "overall_accuracy_metrics.xlsx"))
+# 3. Overall Accuracy Metrics (Combined)
+write_xlsx(combined_overall_table, file.path(data_folder, "combined_overall_accuracy_metrics.xlsx"))
 
-# 6. Stratified Accuracy Metrics by AQI Category for RP, NC, LT
-write_xlsx(results$rp$stratified, file.path(data_folder, "rp_stratified_accuracy_metrics.xlsx"))
-write_xlsx(results$nc$stratified, file.path(data_folder, "nc_stratified_accuracy_metrics.xlsx"))
-write_xlsx(results$lt$stratified, file.path(data_folder, "lt_stratified_accuracy_metrics.xlsx"))
+# 4. Stratified Accuracy Metrics (Combined)
+write_xlsx(combined_stratified_table, file.path(data_folder, "combined_stratified_accuracy_metrics.xlsx"))
 
-# 7. Stratified Accuracy Metrics for Combined Data
-write_xlsx(combined_metrics$stratified, file.path(data_folder, "combined_stratified_accuracy_metrics.xlsx"))
+# 5. Overall Accuracy Metrics by Site
+write_xlsx(rp_metrics_table, file.path(data_folder, "rp_overall_accuracy_metrics.xlsx"))
+write_xlsx(nc_metrics_table, file.path(data_folder, "nc_overall_accuracy_metrics.xlsx"))
+write_xlsx(lt_metrics_table, file.path(data_folder, "lt_overall_accuracy_metrics.xlsx"))
+
+# 6. Stratified Accuracy Metrics by Site
+write_xlsx(rp_stratified_table, file.path(data_folder, "rp_stratified_accuracy_metrics.xlsx"))
+write_xlsx(nc_stratified_table, file.path(data_folder, "nc_stratified_accuracy_metrics.xlsx"))
+write_xlsx(lt_stratified_table, file.path(data_folder, "lt_stratified_accuracy_metrics.xlsx"))
 
 # Confirmation Message
-cat("✅ All tables printed with kable() have been saved successfully to the data folder.\n")
+cat("✅ All updated tables printed with kable() have been saved successfully to the data folder.\n")
 
 ```
 

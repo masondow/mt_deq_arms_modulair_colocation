@@ -39,7 +39,7 @@ library(knitr)
 library(patchwork)
 library(GGally)
 
-source(here("functions", "R_analysis_modeling_functions_dow_20250409"))
+source(here("functions", "R_analysis_modeling_functions_dow_20250409.R"))
 
 theme_set(theme_minimal())
 
@@ -359,36 +359,48 @@ names(residual_plots) <- prediction_cols
 walk(residual_plots, print)
 ```
 
-## Calculate Stratified Metrics
+## Calculate Overall and AQI Stratified Metrics
 
 ```{r}
-# Loop over each pair of prediction and predicted AQI columns and calculate metrics using your calculate_all_metrics function
+# Loop over each pair of prediction and predicted AQI columns and calculate metrics using calculate_all_metrics function
 metrics_by_model <- map2(prediction_cols, pred_aqi_cols, function(pred_col, pred_aqi_col) {
   calculate_all_metrics(
     data = testing_data_updated, 
     fem_col = "fem_avg", 
-    mod_col = pred_col, 
+    sensor_col = pred_col, 
     fem_aqi_col = "fem_aqi", 
-    mod_aqi_col = pred_aqi_col
+    sensor_aqi_col = pred_aqi_col
   )
 })
 
-# Extract overall metrics into a single tibble and add a column for the model name
-overall_metrics <- map_dfr(metrics_by_model, "overall") %>%
-  mutate(model = prediction_cols)
+# ---------------------------------------------------------------
+# Updated Overall and Stratified Metrics by Model into tables
+# ---------------------------------------------------------------
 
-# Extract stratified (by FEM AQI category) metrics into a single tibble
-stratified_metrics <- map2_dfr(metrics_by_model, prediction_cols, function(x, model_name) {
-  x$stratified %>% mutate(model = model_name)
+# 1. Overall metrics 
+overall_metrics <- map2_dfr(metrics_by_model, prediction_cols, function(metrics_tbl, model_name) {
+  metrics_tbl %>%
+    mutate(model = model_name)
 })
 
-# Print the overall performance metrics table 
+# 2. Stratified metrics 
+stratified_metrics <- map2_dfr(prediction_cols, prediction_cols, function(pred_col, model_name) {
+  calculate_stratified_metrics(
+    data = testing_data_updated,
+    fem_col = "fem_avg",
+    sensor_col = pred_col,
+    fem_aqi_col = "fem_aqi"
+  ) %>%
+    mutate(model = model_name)
+})
+
+# 3. Print both tables
 overall_metrics %>% 
   knitr::kable(caption = "Overall Performance Metrics by Model")
 
-# Print the stratified performance metrics table 
 stratified_metrics %>% 
   knitr::kable(caption = "Performance Metrics Stratified by AQI Category and Model")
+
 ```
 
 ## Data Visualizations

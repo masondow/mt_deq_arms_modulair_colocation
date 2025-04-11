@@ -2,7 +2,7 @@
 # Montana DEQ - ARMS Modulair Collocation Project
 
 ## 📌 Project Overview
-This project collects data from and evaluates colocated PM2.5 concentration measurements from QuantAQ Modulair air quality sensors collocated at Montana DEQ regulatory grade monitoring sites. The goal is to assess sensor accuracy and develop correction models to improve data quality.
+This project collects data from and evaluates collocated PM2.5 concentration measurements from QuantAQ Modulair air quality sensors collocated at Montana DEQ regulatory grade monitoring sites. The goal is to assess sensor accuracy and develop correction models to improve data quality.
 
 ## 🎯 Objectives
 - Produce reusable functions and scripts for querying and reformatting data from the QuantAQ cloud

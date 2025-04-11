@@ -150,107 +150,119 @@ stack_monitor_data <- function(data, datetime_col, monitor_cols, recode_map) {
 #------------------------------------------------------------------------------
 plot_fit <- function(data, mod_col, fem_col, site_label) {
   # Calculate Pearson correlation
-  correlation <- cor(data[[mod_col]], data[[fem_col]], use = "complete.obs", method = "pearson")
+  correlation <- cor(data[[fem_col]], data[[mod_col]], use = "complete.obs", method = "pearson")
   
-  ggplot(data, aes_string(x = mod_col, y = fem_col)) +
-    geom_point(alpha = 0.5) +  
-    geom_smooth(method = "lm", se = FALSE, color = "blue") +  
-    geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "red") +  
-    labs(title = paste("Best Fit for", site_label, "Site: Modulair vs FEM"),
-         x = "Modulair PM2.5 (µg/m³)",
-         y = "FEM PM2.5 (µg/m³)") +
+  ggplot(data, aes_string(x = fem_col, y = mod_col)) +
+    geom_point(alpha = 0.5) +
+    geom_smooth(method = "lm", se = FALSE, color = "blue") +
+    geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "red") +
+    labs(title = paste("Best Fit for", site_label, "Site: FEM vs Sensor"),
+         x = "FEM PM2.5 (µg/m³)",
+         y = "Sensor PM2.5 (µg/m³)") +
     theme_minimal() +
     annotate("text", x = Inf, y = Inf, label = paste("r =", round(correlation, 2)),
              hjust = 1.1, vjust = 1.1, size = 5, color = "blue")
 }
 
 #------------------------------------------------------------------------------
-# Function: calculate_metrics
+# Function: calculate_all_metrics
 # Description: Calculate overall accuracy metrics using a linear regression
 #              where the FEM monitor measurement (true value) is the independent variable,
-#              and the Modulair monitor measurement (predicted value) is the dependent variable.
+#              and the sensor measurement (predicted value) is the dependent variable.
+#              If AQI columns are provided, calculates AQI match frequency.
 #
 # EPA recommendations treat the FEM measurement as the gold standard.
 #
-# Returns: a tibble with R-squared, MAE, RMSE, NRMSE (as a percentage), slope, intercept,
-# and Average_Error (the mean of residuals, indicating directional bias).
+# Arguments:
+# - data: Data frame containing the collocation data.
+# - fem_col: Column name (string) for the FEM measurement (independent variable).
+# - sensor_col: Column name (string) for the sensor measurement (dependent variable).
+# - fem_aqi_col: (Optional) Column name for FEM AQI categories.
+# - sensor_aqi_col: (Optional) Column name for sensor AQI categories.
+#
+# Returns: A tibble with Slope, Intercept, R_squared, RMSE, NRMSE, MAE, 
+#          Average_Error (bias), CV (coefficient of variation), 
+#          and optionally AQI_Match_Frequency.
 #------------------------------------------------------------------------------
-calculate_metrics <- function(true_values, predicted_values) {
+calculate_all_metrics <- function(data, fem_col, sensor_col, fem_aqi_col = NULL, sensor_aqi_col = NULL) {
   # Remove missing values
-  valid_idx <- !is.na(true_values) & !is.na(predicted_values)
-  true_vals <- true_values[valid_idx]
-  pred_vals <- predicted_values[valid_idx]
+  valid_idx <- !is.na(data[[fem_col]]) & !is.na(data[[sensor_col]])
+  true_vals <- data[[fem_col]][valid_idx]
+  sensor_vals <- data[[sensor_col]][valid_idx]
   
-  # Fit linear regression: predicted ~ true
-  # FEM measurement (true_vals) is the independent variable,
-  # and the Modulair measurement (pred_vals) is the dependent variable.
-  fit <- lm(pred_vals ~ true_vals)
+  # Fit linear regression: sensor ~ FEM
+  fit <- lm(sensor_vals ~ true_vals)
   slope <- coef(fit)[2]
   intercept <- coef(fit)[1]
   r_squared <- summary(fit)$r.squared
   
   # Calculate residuals and error metrics
-  residuals <- true_vals - pred_vals
+  residuals <- true_vals - sensor_vals
   mae <- mean(abs(residuals))
-  avg_error <- mean(residuals)  # Average error (bias); positive if FEM > Modulair.
+  avg_error <- mean(residuals)
   rmse <- sqrt(mean(residuals^2))
-  nrmse <- rmse / mean(true_vals) * 100  # Expressed as a percentage
+  nrmse <- rmse / mean(true_vals) * 100
+  cv <- sd(residuals) / mean(true_vals) * 100
   
-  tibble(
+  # Build the main metrics table
+  overall_metrics <- tibble(
+    Slope = slope,
+    Intercept = intercept,
     R_squared = r_squared,
-    Average_Error = avg_error,
-    MAE = mae,
     RMSE = rmse,
     NRMSE = nrmse,
-    Slope = slope,
-    Intercept = intercept
+    MAE = mae,
+    Average_Error = avg_error,
+    CV = cv
   )
+  
+  # If AQI columns are provided, calculate AQI match frequency
+  if (!is.null(fem_aqi_col) & !is.null(sensor_aqi_col)) {
+    match_rate <- data %>%
+      filter(!is.na(.data[[fem_aqi_col]]), !is.na(.data[[sensor_aqi_col]])) %>%
+      mutate(match = .data[[fem_aqi_col]] == .data[[sensor_aqi_col]]) %>%
+      summarise(match_frequency = mean(match, na.rm = TRUE)) %>%
+      pull(match_frequency)
+    
+    overall_metrics <- overall_metrics %>%
+      mutate(AQI_Match_Frequency = match_rate)
+  }
+  
+  return(overall_metrics)
 }
 
 #------------------------------------------------------------------------------
-# Function: calculate_all_metrics
-# Description: Calculates overall accuracy metrics, stratified accuracy metrics by FEM AQI category,
-#              and includes the frequency of matching AQI categories between the Modulair and FEM monitors.
+# Function: calculate_stratified_metrics
+# Description: Calculate accuracy metrics separately within each FEM AQI category.
+#              Includes MAE, RMSE, NRMSE, Average_Error (bias), and R_squared 
+#              (with caution: R_squared may be unreliable for small sample sizes).
 #
 # Arguments:
 # - data: Data frame containing the collocation data.
-# - fem_col: Column name (string) for the FEM monitor measurement (independent variable).
-# - mod_col: Column name (string) for the Modulair monitor measurement (dependent variable).
-# - fem_aqi_col: Column name for the FEM AQI category.
-# - mod_aqi_col: Column name for the Modulair AQI category.
+# - fem_col: Column name (string) for the FEM measurement (independent variable).
+# - sensor_col: Column name (string) for the sensor measurement (dependent variable).
+# - fem_aqi_col: Column name (string) for the FEM AQI category (used for stratification).
 #
-# Returns a list with two components:
-#   - overall: A tibble with overall accuracy metrics (including AQI match frequency).
-#   - stratified: A tibble with accuracy metrics stratified by FEM AQI category,
-#                 including a count of observations.
+# Returns: A tibble stratified by AQI category with metrics Count, R_squared, MAE,
+#          Average_Error (bias), RMSE, and NRMSE.
 #------------------------------------------------------------------------------
-calculate_all_metrics <- function(data, fem_col, mod_col, fem_aqi_col, mod_aqi_col) {
-  # Overall accuracy metrics (FEM is the true value; Modulair is compared against it)
-  overall <- calculate_metrics(data[[fem_col]], data[[mod_col]])
-  
-  # Frequency of matching AQI categories (proportion of time Modulair AQI equals FEM AQI)
-  aqi_match <- data %>%
-    mutate(match = (.data[[mod_aqi_col]] == .data[[fem_aqi_col]])) %>%
-    summarise(match_frequency = mean(match, na.rm = TRUE))
-  
-  overall <- overall %>% mutate(aqi_match_frequency = aqi_match$match_frequency)
-  
-  # Stratified metrics by FEM AQI category, including a count of observations.
+calculate_stratified_metrics <- function(data, fem_col, sensor_col, fem_aqi_col) {
   stratified <- data %>%
     filter(!is.na(.data[[fem_aqi_col]])) %>%
-    group_by(category = .data[[fem_aqi_col]]) %>%
+    group_by(AQI_Category = .data[[fem_aqi_col]]) %>%
     summarise(
       Count = n(),
-      R_squared = if(n() > 1) cor(.data[[fem_col]], .data[[mod_col]], use = "complete.obs")^2 else NA_real_,
-      MAE = mean(abs(.data[[fem_col]] - .data[[mod_col]]), na.rm = TRUE),
-      Average_Error = mean(.data[[fem_col]] - .data[[mod_col]], na.rm = TRUE),
-      RMSE = sqrt(mean((.data[[fem_col]] - .data[[mod_col]])^2, na.rm = TRUE)),
-      NRMSE = (sqrt(mean((.data[[fem_col]] - .data[[mod_col]])^2, na.rm = TRUE)) / mean(.data[[fem_col]], na.rm = TRUE)) * 100,
+      R_squared = if (n() > 1) cor(.data[[fem_col]], .data[[sensor_col]], use = "complete.obs")^2 else NA_real_,
+      MAE = mean(abs(.data[[fem_col]] - .data[[sensor_col]]), na.rm = TRUE),
+      Average_Error = mean(.data[[fem_col]] - .data[[sensor_col]], na.rm = TRUE),
+      RMSE = sqrt(mean((.data[[fem_col]] - .data[[sensor_col]])^2, na.rm = TRUE)),
+      NRMSE = (sqrt(mean((.data[[fem_col]] - .data[[sensor_col]])^2, na.rm = TRUE)) / mean(.data[[fem_col]], na.rm = TRUE)) * 100,
       .groups = "drop"
     )
   
-  return(list(overall = overall, stratified = stratified))
+  return(stratified)
 }
+
 #------------------------------------------------------------------------------
 # Function: fit_evaluate_wf
 # Description: 
