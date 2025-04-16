@@ -1,3 +1,13 @@
+Week 13 - 4/15/25 Update
+
+Progress: Last week, recieved feedback from my client (boss) about some additiona metrics and points of comparison we might want to consider for the report. Made some tweaks to the Functions script, EDA and Modeling docs from this.
+
+Problems: None, all coming along according to plan.
+
+Plans: Report draft V4 will accompany these tweaks. Then final adjustments to my digital product to reflect these changes will follow that.
+
+Hours: 10-15 hours this week with in-class presentations. 
+
 Week 12 - 4/8/25 Update
 
 Progress: Report draft V3 will be finsihed this evening.

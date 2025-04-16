@@ -7,14 +7,19 @@ output: html_document
 
 # Introduction
 
-Accurate air quality measurements—especially of fine particulate matter (PM2.5)—are critical for public health, regulatory decision-making, and environmental management. Recent advancements in low‐cost sensors have enabled broader spatial and temporal coverage of air quality monitoring. However, raw sensor data often exhibit biases relative to regulatory‐grade measurements obtained from Federal Equivalent Method (FEM) or Federal Reference Method (FRM) monitors. To address these discrepancies, sensor data must be assessed and corrected to ensure they accurately reflect true ambient conditions.
+Accurate air quality measurements—especially of fine particulate matter (PM2.5)—are critical for public health, regulatory decision-making, and environmental management. Recent advancements in low-cost sensors have enabled broader spatial and temporal coverage of air quality monitoring. However, these sensors often exhibit biases relative to regulatory-grade instruments, such as those using Federal Equivalent Method (FEM) or Federal Reference Method (FRM) protocols. Assessing and correcting these biases is essential to ensure sensor data can reliably support decision-making and public communication.
 
-This document performs an exploratory analysis of collocated FEM BAM and Modulair PM2.5 datasets from three MT DEQ sites (RP, NC, and LT). The objectives are to:
+This document presents an exploratory analysis of collocated hourly PM2.5 data collected at three Montana DEQ monitoring sites (Rossiter Park [RP], NCORE [NC], and Lewistown [LT]) from QuantAQ's **Modulair** sensors, each compared to co-located FEM BAM monitors as a ground truth reference.
 
-- Generate summary tables of descriptive statistics (min, max, mean, standard deviation, etc.) for each parameter for each site.
-- Visualize PM2.5 trends and distributions by site
-- Compute AQI categories for PM2.5 using the AirMontitor package.
-- Calculate a comprehensive set of accuracy metrics (including R², MAE, RMSE, normalized RMSE, regression slope, and intercept), overall and by AQI category for each site.
+The objectives of this analysis are to:
+
+- Generate summary statistics (min, max, mean, standard deviation, etc.) for PM2.5 and meteorological parameters across all sites.
+- Visualize PM2.5 trends and concentration distributions by site and sensor type.
+- Assign hourly AQI categories using the 2024 EPA breakpoints via the **AirMonitor** R package.
+- Evaluate the accuracy of raw Modulair and EPA-corrected PurpleAir PM2.5 measurements using a suite of performance metrics (R², MAE, RMSE, NRMSE, CV, slope, intercept, and AQI match frequency), calculated both overall and stratified by AQI category.
+- Benchmark these results against performance targets from the U.S. EPA and manufacturer-reported accuracy metrics published by QuantAQ.
+
+These findings inform our downstream modeling effort, where we aim to develop a correction model to improve the accuracy of raw Modulair sensor readings under Montana conditions.
 
 # Setup
 
@@ -740,55 +745,84 @@ kable(lt_stratified_table, caption = "Stratified Accuracy Metrics - LT Site")
 
 ```
 
-
 # Preliminary Conclusions from EDA and Rationale for Model Selection
 
-Below is a high-level analytical perspective on our exploratory data analysis (EDA) across the three sites (RP, NC, and LT) and what it suggests for our model selection. This discussion focuses solely on the insights derived from the descriptive summaries, AQI distributions, correlation matrix, and raw FEM vs. Modulair performance metrics. It is meant to guide our modeling effort, which we have already initiated, but here I summarize the key takeaways.
+This section summarizes key findings from the exploratory data analysis (EDA), organized into three parts: (1) PM₂.₅ distribution characteristics by site and sensor type, (2) overall and stratified accuracy of the Modulair sensor compared to FEM monitors, and (3) implications for model development and selection.
 
-## 1. Observed Relationships and Sensor Performance
+## 1. PM₂.₅ Distributions by Site and Sensor
 
 - **RP Site:**
-  - The raw correlation (R² ≈ 0.67) between the raw Modulair PM2.5 (`mod_pm25`) and the FEM average (`fem_avg`) is fairly strong for an uncorrected sensor compared to a regulatory monitor.
-  - The slope is approximately 1.06 with an intercept around -0.64, suggesting that the Modulair sensor slightly overestimates at higher concentrations and slightly underestimates at lower concentrations.
-  - Error metrics indicate a mean absolute error (MAE) of ~3.83 µg/m³ and a root mean square error (RMSE) of ~6.36 µg/m³. The AQI match frequency is around 82%, meaning that about 18% of the time the raw sensor value falls into a different AQI bin than the FEM.
-  - Stratification by AQI category shows increasing error, especially for the “USG” (Unhealthy for Sensitive Groups) and “Unhealthy” categories, where the limited sample size in “Unhealthy” (33 observations) still reveals a significant negative bias and high error (MAE ~35.5 µg/m³).
+  - Displays the widest range of PM₂.₅ values across all sensors given the longer collocation period, with the Modulair reaching ~170 µg/m³ and the FEM average peaking at ~105 µg/m³.
+  - Distribution spans the first four AQI categories, though values still skew heavily toward “Good.” RP is the only site capturing a meaningful number of hours in the “USG” and “Unhealthy” ranges.
+  - Among the three FEM instruments (1020, 1022, Thermo), measurements are largely aligned but diverge slightly during higher concentration episodes. The FEM average smooths out hourly variability and serves as the gold standard for evaluation and modeling for this project.
 
 - **NC Site:**
-  - The NC site exhibits very low correlation (R² ≈ 0.017) between the sensor and FEM measurements, with a negative average error (≈ -2.31 µg/m³) and a high RMSE (~9.0 µg/m³). The extremely high normalized RMSE (NRMSE ~476%) suggests that there may be operational issues (such as the FEM BAM under-sampling) affecting the data quality here.
-  - The AQI distribution is heavily skewed toward “Good” (over 95% of observations), which limits the diversity of pollution levels captured.
+  - PM₂.₅ is tightly clustered in the “Good” AQI range for all monitors, with little spread and FEM values rarely exceeding ~10 µg/m³.
+  - A brief cold snap in Q1 2025 (with temperatures reaching -20 to -30°F) caused outages and degraded performance in both FEM and Modulair data. These anomalies contributed to unusually poor agreement between the sensor and FEM, limiting this site's utility for analysis and modeling.
 
 - **LT Site:**
-  - The LT site shows an R² of only ~0.0285 with a positive average error (~1.97 µg/m³) and a lower RMSE (~4.37 µg/m³) compared to NC. The NRMSE is still high (~152%), indicating large relative error compared to the low PM2.5 levels observed.
-  - AQI distribution here is again mostly in the “Good” category (~94%), with a small percentage in the “Moderate” range.
+  - Like NC, air quality conditions at LT were clean throughout the sampling period. FEM values rarely surpassed 10 µg/m³, with modest excursions into “Moderate.”
+  - All sensors—including the PurpleAir—tracked reasonably well at low concentrations, though signal variation increased slightly for the Modulair.
 
-## 2. Descriptive Statistics and Correlation Insights
+## 2. Accuracy of Modulair vs. FEM by Site
 
-- At the RP site, `mod_pm25` has a mean around 8.10 µg/m³ and a maximum of about 170 µg/m³, while `fem_avg` has a mean of about 8.25 µg/m³ and a maximum of roughly 104.5 µg/m³. This indicates that while most measurements are in a similar range, there are occasional high spikes in the sensor data that are not fully reflected in the FEM.
-- The RP sensor’s RH values span from ~7% to 95% (mean ~54%), and the temperature data also cover a broad range. The correlation matrix shows a modest negative correlation (r ≈ -0.66) between RH and temperature, which is expected meteorologically.
-- Although the direct correlation between RH and `fem_avg` is small (r ≈ -0.038), previous studies (including those by Barkjohn et al.) indicate that even a small systematic effect of RH on sensor scattering can be leveraged to improve accuracy. This justifies the inclusion of RH as an additive or interaction term in our models.
+To assess the raw Modulair PM₂.₅ accuracy, we calculated a suite of sensor evaluation metrics including R², RMSE, MAE, normalized RMSE (NRMSE), and AQI match frequency using hourly data. These metrics are benchmarked against both:
 
-## 3. Preliminary Modeling Takeaways
+- **EPA (2021) NSIM performance targets** for PM₂.₅ field sensors.
+- **QuantAQ’s own Modulair fact sheet**, which reports average hourly performance metrics.
 
-- **Single-Predictor Model:** A simple linear model using only `mod_pm25` as the predictor yields R² ≈ 0.67, slope ≈ 1.06, and intercept ≈ -0.64. While these figures are respectable, they leave room for improvement—especially at higher PM2.5 levels where the sensor appears to under-report relative to the FEM.
-  
-- **Potential Model Enhancements:**
-  - **Nonlinear Terms:** The substantial underestimation in the “USG” and “Unhealthy” categories at the RP site suggests that a nonlinear term (such as a polynomial or piecewise function) might help capture the sensor’s saturation or bias at high concentrations.
-  - **Interaction Terms:** The evidence points toward a benefit in adding an interaction term between PM2.5 and RH. Even though the raw correlation between RH and `fem_avg` is small, an interaction can systematically adjust the sensor’s response under varying humidity conditions, aligning with findings from prior studies.
-  - **Temperature:** Given the weak correlation between temperature and `fem_avg`, an additive temperature term may offer limited benefit unless there is evidence of systematic bias at temperature extremes. Based on our data, RH seems to be the more influential environmental variable.
+#### Overall Accuracy Metrics (Hourly)
 
-## 4. Site Comparisons and Data Selection
+| Site | R²    | MAE (µg/m³) | RMSE (µg/m³) | NRMSE (%) | AQI Match (%) | EPA Target (Hourly)       | QuantAQ Target (Hourly)  |
+|------|-------|--------------|--------------|------------|----------------|----------------------------|---------------------------|
+| RP   | 0.67  | 3.83         | 6.36         | 77.0       | 82.1%          | R² > 0.70, RMSE < 7        | R² = 0.92, RMSE = 3.2     |
+| NC   | 0.017 | 3.78         | 9.00         | 475.7      | 79.8%          | —                          | —                         |
+| LT   | 0.029 | 2.97         | 4.37         | 152.4      | 85.3%          | —                          | —                         |
 
-- **RP Site** is the most robust among the three:
-  - It has the highest number of observations (over 11,000 complete hours) and exhibits a balanced distribution across AQI categories (despite some challenges at the high end).
-  - The error metrics (lower RMSE and higher R²) and decent AQI match frequency suggest that the RP site provides a reliable basis for modeling.
-  
-- **NC and LT Sites:**
-  - The NC site has very limited variability in pollution levels (mostly “Good”) and shows poor correlation, likely due to suspected FEM under-sampling issues in Q1 of 2025.
-  - The LT site, while having a reasonable number of observations, also predominantly captures “Good” air quality conditions, which limits the ability to model corrections for higher pollution levels.
+- At **RP**, raw Modulair values come close to meeting EPA deployment thresholds, particularly RMSE (<7). R² is slightly low (0.67), and performance falls short of QuantAQ’s claimed R² = 0.92 and RMSE = 3.2.
+- At **NC**, accuracy breaks down entirely. The extremely low correlation and high NRMSE (~476%) point to data quality concerns during and after equipment failure.
+- At **LT**, RMSE is within EPA guidelines but again falls short of manufacturer claims. High NRMSE (~152%) stems from the low overall concentration range.
 
-Given these insights, I have decided to move forward primarily with the RP site data for model development. The RP dataset offers a robust and representative sample with sufficient variability across AQI categories to support a nuanced correction model that may incorporate nonlinear or interaction effects with RH. For future work, it might be worthwhile to explore why the NC site performs poorly and whether additional data cleaning or sensor calibration is needed there.
+These results justify prioritizing RP for modeling use. It is the only site with data quality and variability sufficient to support sensor calibration.
 
-*This summary is based on the descriptive statistics, AQI category counts, accuracy metrics by site, and stratified performance metrics we generated during our EDA. It serves as the rationale for our current focus on the RP site for modeling, while also highlighting potential areas of improvement in model specification (e.g., nonlinear terms or interactions) to address biases observed at higher pollution levels.*
+#### Direction of Bias by AQI Category
+
+We also analyzed how sensor error varied by AQI level. Below is a summary of the average bias (FEM − Modulair), by AQI category and site:
+
+| Site | AQI Category | Average Error (µg/m³) | Bias Direction         |
+|------|---------------|------------------------|------------------------|
+| RP   | Good          | +0.15                  | Slight Underestimate   |
+| RP   | Moderate      | -0.76                  | Overestimate           |
+| RP   | USG           | -8.47                  | Strong Overestimate    |
+| RP   | Unhealthy     | -35.47                 | Strong Overestimate    |
+| NC   | Good          | -2.30                  | Overestimate           |
+| LT   | Good          | +1.98                  | Underestimate          |
+| LT   | Moderate      | +1.47                  | Underestimate          |
+
+Key takeaways:
+
+- At **RP**, error is near-zero in clean conditions but increases sharply with pollution. Modulair overestimates significantly in the “Unhealthy” category.
+- At **LT**, the sensor underestimates across the board, but the overall bias is small in magnitude.
+- At **NC**, consistent overestimation occurs even in clean air—again suggesting data reliability issues.
+
+These stratified findings confirm the **nonlinear nature of bias**, particularly at higher concentrations. They also show the importance of using AQI-stratified metrics in addition to overall accuracy.
+
+## 3. Modeling Implications
+
+- **Site Selection:**
+  - RP is the most viable site for model development due to its broader PM₂.₅ range, sufficient AQI representation, and data integrity.
+  - NC and LT are not appropriate for model fitting but may serve in future model validation under low-concentration scenarios.
+
+- **Sensor Performance Summary:**
+  - Modulair sensor readings are reasonably aligned with FEM values at RP, especially under 35 µg/m³. However, they substantially overestimate in higher pollution events.
+  - PurpleAir values (which are already corrected using the EPA US-wide formula) serve as a useful benchmark but do not consistently outperform raw Modulair data—particularly at RP.
+
+- **Modeling Approach:**
+  - Our modeling strategy focuses on improving raw Modulair performance through bias correction. A base linear model is a reasonable start.
+  - Given known scattering artifacts due to RH, its inclusion as an additive or interaction term is justified.
+  - Future exploration may include polynomial or piecewise terms to address underperformance in high AQI categories, though complexity must be weighed against operational deployment constraints.
+
+These conclusions justify our focus on the RP site and provide the foundation for the modeling script that follows. They also highlight key challenges and opportunities for improving sensor performance through light-touch statistical correction.
 
 ```{r}
 # Save All Updated kable() Tables to Excel Files for report 
