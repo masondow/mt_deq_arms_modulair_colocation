@@ -697,6 +697,48 @@ stratified_comparison_table %>%
   knitr::kable(caption = "Stratified Final Modeling Performance Metrics Comparison by AQI Category")
 
 ```
+### FEM Monitor Stratified Accuracy
+
+```{r}
+# Final model vs. each FEM instrument at RP
+final_model_metrics_by_fem <- list()
+
+final_model_metrics_by_fem[["Final_vs_1020"]] <- run_comparison(
+  final_modeled_data, 
+  fem_col = "rp_1020", 
+  sensor_col = "pred_linear_rh_final", 
+  fem_aqi_col = "fem_aqi", 
+  sensor_aqi_col = "pred_linear_rh_final_aqi", 
+  sensor_label = "Final Model"
+)
+
+final_model_metrics_by_fem[["Final_vs_1022"]] <- run_comparison(
+  final_modeled_data, 
+  fem_col = "rp_1022", 
+  sensor_col = "pred_linear_rh_final", 
+  fem_aqi_col = "fem_aqi", 
+  sensor_aqi_col = "pred_linear_rh_final_aqi", 
+  sensor_label = "Final Model"
+)
+
+final_model_metrics_by_fem[["Final_vs_Thermo"]] <- run_comparison(
+  final_modeled_data, 
+  fem_col = "rp_thermo", 
+  sensor_col = "pred_linear_rh_final", 
+  fem_aqi_col = "fem_aqi", 
+  sensor_aqi_col = "pred_linear_rh_final_aqi", 
+  sensor_label = "Final Model"
+)
+
+# Combine results into a table
+final_model_monitor_metrics <- bind_rows(final_model_metrics_by_fem) %>%
+  select(Sensor, FEM_Reference, everything())
+
+# View the results
+kable(final_model_monitor_metrics, caption = "Accuracy of Final Correction Model vs. Each FEM Instrument at RP Site")
+
+
+```
 
 
 ## Coefficients and Equation
@@ -808,6 +850,9 @@ write_xlsx(comparison_table, file.path(data_folder, "final_model_overall_compari
 
 # 5. Final Stratified Model Comparison (Final vs Uncorrected vs EPA Correction)
 write_xlsx(stratified_comparison_table, file.path(data_folder, "final_model_stratified_comparison.xlsx"))
+
+# 6. Final Model Comparison by FEM Instrument
+write_xlsx(final_model_monitor_metrics, file.path(data_folder, "final_model_monitor_metrics.xlsx"))
 
 # Confirmation Message
 cat("✅ All tables from the modeling R Markdown document have been saved successfully to the data folder.\n")
