@@ -1,6 +1,14 @@
-Week 13 - 4/15/25 Update
+Week 14 - 4/22/25 Update
 
-Progress: Last week, recieved feedback from my client (boss) about some additiona metrics and points of comparison we might want to consider for the report. Made some tweaks to the Functions script, EDA and Modeling docs from this.
+Progress: Completed my digital product in ArcGIS StoryMaps! I like the interactivity and think its a good high-level distillation of this work.
+
+Problems: Need to secure the proper account permissions to share out my StoryMap with the public. the DEQ GIS team will get to that for me today.
+
+Plans: Making some tweaks to my final report, and building out my executive summary (harder than I thought it would be!). 
+
+Hours: 10ish hours this week.
+
+Progress: Last week, recieved feedback from my client (boss) about some additional metrics and points of comparison we might want to consider for the report. Made some tweaks to the Functions script, EDA and Modeling docs from this.
 
 Problems: None, all coming along according to plan.
 
