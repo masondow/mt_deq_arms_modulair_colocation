@@ -466,6 +466,51 @@ ggplot(lt_daily, aes(x = date)) +
 
 ```
 
+```{r}
+# Summer Data Only
+
+
+# Define date range
+start_date <- as.Date("2024-05-01")
+end_date <- as.Date("2024-09-30")
+
+# Filter for summer 2024
+rp_daily_summer <- rp_daily %>%
+  filter(date >= start_date & date <= end_date)
+
+# Filter AQI lines and colors only up to USG
+aqi_breaks_trimmed <- aqi_breaks[aqi_breaks <= 100]
+aqi_colors_trimmed <- aqi_colors[seq_along(aqi_breaks_trimmed)]
+
+# Plot
+ggplot(rp_daily_summer, aes(x = date)) +
+  geom_line(aes(y = rp_1020, color = "1020")) +
+  geom_line(aes(y = rp_1022, color = "1022")) +
+  geom_line(aes(y = rp_thermo, color = "Thermo")) +
+  geom_line(aes(y = rp_modulair_pm25, color = "Modulair")) +
+  geom_line(aes(y = rp_purpleair_cf1, color = "PurpleAir")) +
+  # AQI lines up to USG
+  geom_hline(
+    yintercept = aqi_breaks_trimmed,
+    color = aqi_colors_trimmed,
+    linetype = "dashed"
+  ) +
+  annotate("text", x = end_date + 50, y = 12,   label = "Good",     vjust = -0.5, hjust = 1.1) +
+  annotate("text", x = end_date + 50, y = 35.4, label = "Moderate", vjust = -0.5, hjust = 1.1) +
+  annotate("text", x = end_date + 50, y = 55.4, label = "USG",      vjust = -0.5, hjust = 1.1) +
+  scale_color_manual(values = monitor_colors) +
+  labs(
+    title = "PM2.5 Time Series at RP Site (Summer 2024)",
+    x = "Date",
+    y = "PM2.5 (µg/m³)",
+    color = "Monitor Type"
+  ) +
+  coord_cartesian(ylim = c(0, 150)) +  # cap y-axis
+  theme_minimal()
+
+```
+
+
 ## Scatterplot w/ Line of Best Fit & 1:1 by Site
 
 ```{r}
@@ -745,6 +790,69 @@ kable(lt_stratified_table, caption = "Stratified Accuracy Metrics - LT Site")
 
 ```
 
+## Daily-Average Metrics - RP Only 
+
+### Overall Accuracy Metrics
+
+```{r}
+# Run daily-level overall accuracy metrics for RP
+rp_daily_overall_modulair <- calculate_all_metrics(
+  data = rp_daily,
+  fem_col = "rp_fem_avg",
+  sensor_col = "rp_modulair_pm25",
+  fem_aqi_col = "rp_fem_aqi",
+  sensor_aqi_col = "rp_modulair_aqi"
+)
+
+# Run for PurpleAir too if desired
+rp_daily_overall_purpleair <- calculate_all_metrics(
+  data = rp_daily,
+  fem_col = "rp_fem_avg",
+  sensor_col = "rp_purpleair_cf1",
+  fem_aqi_col = "rp_fem_aqi",
+  sensor_aqi_col = "rp_purpleair_aqi"
+)
+
+# Combine and display
+rp_daily_overall <- bind_rows(
+  rp_daily_overall_modulair %>% mutate(Sensor = "Modulair"),
+  rp_daily_overall_purpleair %>% mutate(Sensor = "PurpleAir")
+) %>%
+  relocate(Sensor)
+
+kable(rp_daily_overall, caption = "Overall Accuracy Metrics - RP Daily Averages")
+
+```
+
+### AQI Stratified 
+
+```{r}
+# Run stratified metrics
+rp_daily_stratified_modulair <- calculate_stratified_metrics(
+  data = rp_daily,
+  fem_col = "rp_fem_avg",
+  sensor_col = "rp_modulair_pm25",
+  fem_aqi_col = "rp_fem_aqi"
+)
+
+rp_daily_stratified_purpleair <- calculate_stratified_metrics(
+  data = rp_daily,
+  fem_col = "rp_fem_avg",
+  sensor_col = "rp_purpleair_cf1",
+  fem_aqi_col = "rp_fem_aqi"
+)
+
+# Combine and display
+rp_daily_stratified <- bind_rows(
+  rp_daily_stratified_modulair %>% mutate(Sensor = "Modulair"),
+  rp_daily_stratified_purpleair %>% mutate(Sensor = "PurpleAir")
+) %>%
+  relocate(Sensor, AQI_Category)
+
+kable(rp_daily_stratified, caption = "Stratified Accuracy Metrics by AQI - RP Daily Averages")
+
+```
+
 # Preliminary Conclusions from EDA and Rationale for Model Selection
 
 This section summarizes key findings from the exploratory data analysis (EDA), organized into three parts: (1) PM₂.₅ distribution characteristics by site and sensor type, (2) overall and stratified accuracy of the Modulair sensor compared to FEM monitors, and (3) implications for model development and selection.
@@ -768,18 +876,18 @@ This section summarizes key findings from the exploratory data analysis (EDA), o
 
 To assess the raw Modulair PM₂.₅ accuracy, we calculated a suite of sensor evaluation metrics including R², RMSE, MAE, normalized RMSE (NRMSE), and AQI match frequency using hourly data. These metrics are benchmarked against both:
 
-- **EPA (2021) NSIM performance targets** for PM₂.₅ field sensors.
-- **QuantAQ’s own Modulair fact sheet**, which reports average hourly performance metrics.
+- **EPA (2021) NSIM performance targets** for PM₂.₅ fiedl-deployed sensors.
+- **QuantAQ’s own Modulair fact sheet**, which reports average hourly and 24-hour performance metrics.
 
-#### Overall Accuracy Metrics (Hourly)
+### Overall Accuracy Metrics (Hourly)
 
 | Site | R²    | MAE (µg/m³) | RMSE (µg/m³) | NRMSE (%) | AQI Match (%) | EPA Target (Hourly)       | QuantAQ Target (Hourly)  |
 |------|-------|--------------|--------------|------------|----------------|----------------------------|---------------------------|
-| RP   | 0.67  | 3.83         | 6.36         | 77.0       | 82.1%          | R² > 0.70, RMSE < 7        | R² = 0.92, RMSE = 3.2     |
+| RP   | 0.67  | 3.83         | 6.30         | 76.3       | 82.4%          | R² > 0.70, RMSE < 7        | R² = 0.92, RMSE = 3.2     |
 | NC   | 0.017 | 3.78         | 9.00         | 475.7      | 79.8%          | —                          | —                         |
 | LT   | 0.029 | 2.97         | 4.37         | 152.4      | 85.3%          | —                          | —                         |
 
-- At **RP**, raw Modulair values come close to meeting EPA deployment thresholds, particularly RMSE (<7). R² is slightly low (0.67), and performance falls short of QuantAQ’s claimed R² = 0.92 and RMSE = 3.2.
+- At **RP**, raw Modulair values meet or come close to meeting EPA deployment thresholds, particularly RMSE (<7). R² is slightly low (0.68), and performance falls short of QuantAQ’s claimed R² = 0.92 and RMSE = 3.2.
 - At **NC**, accuracy breaks down entirely. The extremely low correlation and high NRMSE (~476%) point to data quality concerns during and after equipment failure.
 - At **LT**, RMSE is within EPA guidelines but again falls short of manufacturer claims. High NRMSE (~152%) stems from the low overall concentration range.
 
@@ -806,6 +914,24 @@ Key takeaways:
 - At **NC**, consistent overestimation occurs even in clean air—again suggesting data reliability issues.
 
 These stratified findings confirm the **nonlinear nature of bias**, particularly at higher concentrations. They also show the importance of using AQI-stratified metrics in addition to overall accuracy.
+
+### Daily-Averaged Accuracy Metrics (RP Only)
+
+When data is averaged to daily means, accuracy improves considerably:
+
+| Sensor     | R²    | MAE (µg/m³) | RMSE (µg/m³) | NRMSE (%) | AQI Match (%) |
+|------------|-------|--------------|--------------|------------|----------------|
+| Modulair   | 0.89  | 2.34         | 3.66         | 44.4       | 89.5%          |
+| PurpleAir  | 0.92  | 1.58         | 2.46         | 32.6       | 95.6%          |
+
+These metrics represent a substantial jump from the hourly results. For the Modulair, R² increased from 0.67 to 0.89 and RMSE dropped from 6.36 to 3.66 µg/m³. PurpleAir also surpassed its hourly performance, with an R² of 0.92 and RMSE of 2.46 µg/m³.
+
+**Why do daily averages improve accuracy?**
+- **Noise reduction:** Averaging smooths out short-term fluctuations caused by factors like wind gusts, momentary instrument noise, or brief sampling inconsistencies.
+- **Temporal alignment:** Hourly comparisons may misalign slightly due to differences in sampling windows or timestamps. Daily aggregation mitigates this.
+- **Improved signal-to-noise ratio:** Concentration trends are easier to discern at coarser time scales, helping correlation and error metrics better reflect true performance.
+
+Because AQI values reported to the public are often based on **24-hour averages**, these results reinforce confidence in the sensor’s reliability for daily reporting—especially at the RP site.
 
 ## 3. Modeling Implications
 
@@ -857,6 +983,10 @@ write_xlsx(lt_metrics_table, file.path(data_folder, "lt_overall_accuracy_metrics
 write_xlsx(rp_stratified_table, file.path(data_folder, "rp_stratified_accuracy_metrics.xlsx"))
 write_xlsx(nc_stratified_table, file.path(data_folder, "nc_stratified_accuracy_metrics.xlsx"))
 write_xlsx(lt_stratified_table, file.path(data_folder, "lt_stratified_accuracy_metrics.xlsx"))
+
+# 7. Daily Accuracy Metrics for RP 
+write_xlsx(rp_daily_overall, file.path(data_folder, "rp_daily_accuracy_metrics_overall.xlsx"))    
+write_xlsx(rp_daily_stratified, file.path(data_folder, "rp_daily_accuracy_metrics_stratified.xlsx"))
 
 # Confirmation Message
 cat("✅ All updated tables printed with kable() have been saved successfully to the data folder.\n")

@@ -365,3 +365,31 @@ plot_model_fit <- function(test_data, pred_col, fem_col = "fem_avg") {
              label = paste("r =", round(correlation, 2)),
              hjust = 1.1, vjust = 1.1, size = 5, color = "blue")
 }
+
+
+#------------------------------------------------------------------------------
+# Function: run_comparison
+# Description: 
+#
+# Arguments:
+# -
+#
+# Returns:
+# - 
+#------------------------------------------------------------------------------
+
+run_comparison <- function(data, fem_col, sensor_col, fem_aqi_col = NULL, sensor_aqi_col = NULL, sensor_label) {
+  metrics <- calculate_all_metrics(data, fem_col, sensor_col, fem_aqi_col, sensor_aqi_col)
+  
+  if (is.list(metrics) && "overall" %in% names(metrics)) {
+    metrics <- metrics$overall
+  }
+  
+  metrics <- metrics %>%
+    mutate(
+      FEM_Reference = fem_col,
+      Sensor = sensor_label
+    )
+  
+  return(metrics)
+}
