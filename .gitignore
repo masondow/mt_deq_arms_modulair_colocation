@@ -5,6 +5,10 @@ environment/
 # Ignore raw data (ensure raw data is stored locally, not in GitHub)
 data/raw_*
 
+# Ignore R Data and History
+.RData
+.RHistory
+
 # Ignore compiled Python files
 __pycache__/
 *.pyc

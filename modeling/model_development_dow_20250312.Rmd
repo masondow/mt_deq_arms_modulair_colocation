@@ -655,7 +655,7 @@ comparison_table %>%
 # Stratified Accuracy Metrics for Final Model, Uncorrected Modulair, and PA US Correction
 # ---------------------------------------------------------------
 
-# Helper function for clean labeling
+# Helper function for cleaner labeling
 add_model_label_stratified <- function(metrics_tbl, model_label) {
   metrics_tbl %>%
     mutate(Model = model_label) %>%

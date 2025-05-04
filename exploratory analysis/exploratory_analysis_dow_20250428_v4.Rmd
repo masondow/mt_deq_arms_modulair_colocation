@@ -637,22 +637,6 @@ kable(combined_stratified_table, caption = "Stratified Accuracy Metrics by AQI C
 
 # Overall Accuracy Metrics by Site (Modulair and PurpleAir)
 
-run_comparison <- function(data, fem_col, sensor_col, fem_aqi_col = NULL, sensor_aqi_col = NULL, sensor_label) {
-  metrics <- calculate_all_metrics(data, fem_col, sensor_col, fem_aqi_col, sensor_aqi_col)
-  
-  if (is.list(metrics) && "overall" %in% names(metrics)) {
-    metrics <- metrics$overall
-  }
-  
-  metrics <- metrics %>%
-    mutate(
-      FEM_Reference = fem_col,
-      Sensor = sensor_label
-    )
-  
-  return(metrics)
-}
-
 # Initialize empty lists to store results
 rp_metrics <- list()
 nc_metrics <- list()

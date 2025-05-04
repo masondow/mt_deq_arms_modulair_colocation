@@ -369,14 +369,23 @@ plot_model_fit <- function(test_data, pred_col, fem_col = "fem_avg") {
 
 #------------------------------------------------------------------------------
 # Function: run_comparison
-# Description: 
+# Description: Computes a standardized set of performance metrics comparing 
+#              sensor PM2.5 values to a FEM reference, optionally including
+#              AQI category agreement metrics.
 #
 # Arguments:
-# -
+# - data: A data frame containing the relevant sensor and FEM PM2.5 columns.
+# - fem_col: String. The column name in `data` representing the FEM PM2.5 reference.
+# - sensor_col: String. The column name in `data` representing the sensor PM2.5 data.
+# - fem_aqi_col: (Optional) String. The column name representing FEM AQI categories.
+# - sensor_aqi_col: (Optional) String. The column name representing sensor AQI categories.
+# - sensor_label: String. Label to use for identifying the sensor type (e.g., "Modulair").
 #
 # Returns:
-# - 
+# - A tibble containing the calculated metrics and metadata including
+#   the FEM reference used and the sensor label.
 #------------------------------------------------------------------------------
+
 
 run_comparison <- function(data, fem_col, sensor_col, fem_aqi_col = NULL, sensor_aqi_col = NULL, sensor_label) {
   metrics <- calculate_all_metrics(data, fem_col, sensor_col, fem_aqi_col, sensor_aqi_col)

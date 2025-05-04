@@ -1,60 +1,57 @@
-
 # Montana DEQ - ARMS Modulair Collocation Project
 
 ## 📌 Project Overview
-This project collects data from and evaluates collocated PM2.5 concentration measurements from QuantAQ Modulair air quality sensors collocated at Montana DEQ regulatory grade monitoring sites. The goal is to assess sensor accuracy and develop correction models to improve data quality.
+This project assesses the accuracy of QuantAQ Modulair air quality sensors collocated with Montana DEQ's regulatory-grade PM2.5 monitors. The goal is to evaluate raw sensor performance, identify and understand sources of bias, and develop correction models to improve sensor agreement with FEM data.
+
+The project supports the Montana Department of Environmental Quality’s Air Research and Monitoring Section (ARMS) and was conducted as part of a Master of Science in Business Analytics (MSBA) Capstone project.
 
 ## 🎯 Objectives
-- Produce reusable functions and scripts for querying and reformatting data from the QuantAQ cloud
-- Compare uncorrected PM2.5 readings from Modulair sensors to regulatory-grade data.
-- Explore accuracy and bias at different concentration/AQI levels. 
-- Explore meteorological effects on sensor bias.
-- Develop and test correction models for improved accuracy.
+- Retrieve and process raw sensor data from the QuantAQ Cloud API.
+- Integrate data from regulatory-grade monitors and PurpleAir sensors for comparison.
+- Evaluate PM2.5 agreement between sensors and FEM instruments across three collocation sites.
+- Develop correction models to improve sensor accuracy using linear modeling approaches.
 
-## 📂 Repository Structure
+## 📁 Repository Structure
 ```
-📂 data/          – Stores processed datasets (to be ignored in final update). 
-📂 exploratory analysis/     – Jupyter/RMarkdown notebooks for EDA.
-📂 modeling/      – Jupyter/RMarkdown notebooks for modeling and assessment.  
-📂 functions/     – Python and R functions for data retrieval and pre-processing.
-📂 reports/       – Final figures, tables, and project summaries.  
-📄 README.md      – Overview of the project.  
-📄 three_ps_dow.txt     – Weekly project updates  
-📄  requirements.txt    - Project dependencies 
-📄 .gitignore     – Prevents sensitive files from being tracked.  
+📂 data/                     – Final combined datasets for RP, NC, and LT sites (excluded from .git for privacy).
+📂 exploratory analysis/     – R Markdown notebook for exploratory data analysis (EDA).
+📂 modeling/                 – R Markdown notebook for modeling and evaluation.
+📂 functions/                – Python and R function scripts for querying, cleaning, and analysis.
+📂 reports/                  – Knitted HTML outputs from analysis and modeling notebooks.
+📄 README.md                 – Overview and usage of the repository.
+📄 three_ps_dow.txt          – Weekly project updates and reflections.
+📄 requirements.txt          – Python dependencies for API querying and setup.
+📄 .gitignore                – Prevents sensitive and temporary files from being tracked.
 ```
 
-## 🚀 Setup Instructions
-1. Clone this repo:  
+## 🔄 Analysis & Modeling Workflow
+
+- **📄 `exploratory_analysis_dow_20250428_v4.Rmd`**  
+  Located in `exploratory analysis/`  
+  This R Markdown workbook evaluates the raw accuracy of Modulair PM2.5 measurements relative to FEM monitors across three collocation sites. Performance is benchmarked using EPA NSIM field-testing targets and stratified by both AQI category and FEM reference to understand how accuracy varies across conditions.
+
+- **📄 `model_development_dow_20250312.Rmd`**  
+  Located in `modeling/`  
+  This notebook follows the EPA sensor correction workflow to develop and evaluate candidate correction models. Multiple model types—including linear, interaction, and quadratic forms—are trained, cross-validated, and assessed for performance in improving sensor agreement with FEM data.
+
+## 🔐 API Setup (for re-running QuantAQ queries)
+
+To re-query QuantAQ data:
+1. Create a `.env` file in the project root directory:
    ```bash
-   git clone https://github.com/masondow/mt_deq_arms_modulair_colocation.git
-   cd mt_deq_arms_modulair_colocation
+   QUANTAQ_API_KEY="your_secret_api_key"
    ```
+2. Your API key will be used by the Python script `py_retrieve_modulair_resampled_dow_20250304.py` to authenticate and download hourly-resampled data.
 
-2. Install dependencies:  
-   ```bash
-   pip install -r requirements.txt  # For Python
-   ```
-
-3. **Set up API credentials**:  
-   - Create a `.env` file with your QuantAQ API key:  
-     ```bash
-     QUANTAQ_API_KEY="your_secret_api_key"
-     ```
-   - **DO NOT COMMIT `.env`!** It is ignored by `.gitignore`.
-   
-## Example Analysis and Modeling Steps
-1.
-
-2.
-
-3.
-
+> ⚠️ Note: The `.env` file is ignored by `.gitignore` and should **never** be committed to the repo.
 
 ## 📊 Data Sources
-- **QuantAQ Cloud Modulair API** (cloud-hosted sensor data).
-- **ARMS AirVision Microsoft SQL Server Database** (FEM reference data, accessed manually through AirVision GUI or via AVconn package, not available to public).
-- **ARMS SQLite Database** (ARMS owned, not available to public)
+- **QuantAQ Cloud API** – Resampled PM2.5 data from Modulair sensors  
+- **AirVision (MT DEQ internal database)** – Regulatory-grade FEM PM2.5 reference data  
+- **PurpleAir SQLite (internal)** – EPA-corrected PurpleAir CF1 PM2.5 data
 
-## 📝 License & Attribution
-<Optional: Any usage terms, license, or acknowledgments I may want (def acknowledgments!)>
+## 📄 Reports
+Knitted `.html` outputs for both analysis and modeling are saved in the `/reports` folder. These files serve as shareable and reproducible documentation of results.
+
+## 🙏 Acknowledgments
+This project was conducted in partnership with the Montana Department of Environmental Quality (DEQ) Air Research and Monitoring Section (ARMS), as part of the MSBA Capstone Project at the University of Montana.
