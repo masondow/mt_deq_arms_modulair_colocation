@@ -385,8 +385,6 @@ plot_model_fit <- function(test_data, pred_col, fem_col = "fem_avg") {
 # - A tibble containing the calculated metrics and metadata including
 #   the FEM reference used and the sensor label.
 #------------------------------------------------------------------------------
-
-
 run_comparison <- function(data, fem_col, sensor_col, fem_aqi_col = NULL, sensor_aqi_col = NULL, sensor_label) {
   metrics <- calculate_all_metrics(data, fem_col, sensor_col, fem_aqi_col, sensor_aqi_col)
   
