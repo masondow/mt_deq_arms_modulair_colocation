@@ -1,3 +1,5 @@
+# for Python scripts 
+
 py-quantaq
 pandas
 python-dotenv

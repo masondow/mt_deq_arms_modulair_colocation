@@ -7,13 +7,12 @@ The project supports the Montana Department of Environmental Quality’s Air Res
 
 ## 🎯 Objectives
 - Retrieve and process raw sensor data from the QuantAQ Cloud API.
-- Integrate data from regulatory-grade monitors and PurpleAir sensors for comparison.
-- Evaluate PM2.5 agreement between sensors and FEM instruments across three collocation sites.
-- Develop correction models to improve sensor accuracy using linear modeling approaches.
+- Evaluate PM2.5 agreement between sensors and FEM instruments across three collocation sites using EPA NSIM metrics.
+- Develop correction models to improve sensor accuracy using Tidymodels modeling approaches.
 
 ## 📁 Repository Structure
 ```
-📂 data/                     – Final combined datasets for RP, NC, and LT sites (excluded from .git for privacy).
+📂 data/                     – Final combined datasets for RP, NC, and LT sites.
 📂 exploratory analysis/     – R Markdown notebook for exploratory data analysis (EDA).
 📂 modeling/                 – R Markdown notebook for modeling and evaluation.
 📂 functions/                – Python and R function scripts for querying, cleaning, and analysis.
@@ -28,11 +27,11 @@ The project supports the Montana Department of Environmental Quality’s Air Res
 
 - **📄 `exploratory_analysis_dow_20250428_v4.Rmd`**  
   Located in `exploratory analysis/`  
-  This R Markdown workbook evaluates the raw accuracy of Modulair PM2.5 measurements relative to FEM monitors across three collocation sites. Performance is benchmarked using EPA NSIM field-testing targets and stratified by both AQI category and FEM reference to understand how accuracy varies across conditions.
+  This R Markdown workbook evaluates the raw accuracy of Modulair PM2.5 measurements relative to FEM monitors across three collocation sites. Performance is benchmarked using EPA NSIM field-testing targets and stratified by both AQI category and FEM monitor reference to understand how accuracy varies across conditions.
 
 - **📄 `model_development_dow_20250312.Rmd`**  
   Located in `modeling/`  
-  This notebook follows the EPA sensor correction workflow to develop and evaluate candidate correction models. Multiple model types—including linear, interaction, and quadratic forms—are trained, cross-validated, and assessed for performance in improving sensor agreement with FEM data.
+  This R Markdown notebook follows the EPA sensor correction workflow to develop and evaluate candidate correction models. Multiple model types—including linear, interaction, and quadratic forms—are trained, cross-validated, and assessed for performance in improving sensor agreement with FEM data.
 
 ## 🔐 API Setup (for re-running QuantAQ queries)
 
@@ -48,7 +47,7 @@ To re-query QuantAQ data:
 ## 📊 Data Sources
 - **QuantAQ Cloud API** – Resampled PM2.5 data from Modulair sensors  
 - **AirVision (MT DEQ internal database)** – Regulatory-grade FEM PM2.5 reference data  
-- **PurpleAir SQLite (internal)** – EPA-corrected PurpleAir CF1 PM2.5 data
+- **PurpleAir SQLite Database (internal)** – EPA-corrected PurpleAir CF1 PM2.5 data
 
 ## 📄 Reports
 Knitted `.html` outputs for both analysis and modeling are saved in the `/reports` folder. These files serve as shareable and reproducible documentation of results.
